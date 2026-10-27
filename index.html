@@ -295,9 +295,14 @@ function renderTable(accs,results){
 }
 /* ============ 操作记录（下单成功/失败，本地保存） ============ */
 function getLogs(){ try{ return JSON.parse(localStorage.getItem("op_log_v1")||"[]"); }catch(e){ return []; } }
-function addLog(type, text){
+function addLog(type, text, sym, acct){
   const logs=getLogs();
-  logs.unshift({t:Date.now(), type, text});
+  if(sym&&acct){
+    for(let i=logs.length-1;i>=0;i--){
+      if(logs[i]&&logs[i].sym===sym&&logs[i].acct===acct) logs.splice(i,1);
+    }
+  }
+  logs.unshift({t:Date.now(), type, text, sym, acct});
   if(logs.length>50) logs.length=50;
   try{ localStorage.setItem("op_log_v1", JSON.stringify(logs)); }catch(e){}
   renderLog();
@@ -378,15 +383,15 @@ async function placeOrder(){
     if(dual) params.positionSide=t.dir==="多单"?"LONG":"SHORT";
     const j=await signedFetch(t.acc,"/fapi/v1/order","POST",params);
     if(j.orderId){
-      addLog("ok", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 数量 "+t.qty+"（订单 "+j.orderId+"）");
+      addLog("ok", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 数量 "+t.qty+"（订单 "+j.orderId+"）", t.sym, t.acc.name);
       setStatus(t.acc.name+" "+t.sym+" "+t.dir+(t.action==="加仓"?"加仓":"开仓")+"成功（订单 "+j.orderId+"）");
       loadAll();
     }else{
-      addLog("err", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 失败："+(j.msg||JSON.stringify(j).slice(0,120)));
+      addLog("err", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 失败："+(j.msg||JSON.stringify(j).slice(0,120)), t.sym, t.acc.name);
       alert("下单失败："+(j.msg||JSON.stringify(j).slice(0,120)));
     }
   }catch(e){
-    addLog("err", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 失败："+e.message);
+    addLog("err", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 失败："+e.message, t.sym, t.acc.name);
     alert("下单失败："+e.message);
   }
 }
