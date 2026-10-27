@@ -63,6 +63,7 @@
   .ok{color:#22c55e;font-weight:600}
   .bad{color:#e05c53;font-weight:600}
   tbody tr.alt td{background:#26354f}
+  .tbl tbody tr.pair-sep td{height:20px;padding:0;background:#0b0f16;border-top:1px solid #2b3648;border-bottom:1px solid #2b3648}
 </style>
 </head>
 <body>
@@ -286,7 +287,8 @@ function renderTable(accs,results){
       row1+=p1?cellData(d1,p1,a.id,sym):cellEmpty(a.id,sym,d1);
       row2+=p2?cellData(d2,p2,a.id,sym):cellEmpty(a.id,sym,d2);
     });
-    return row1+'</tr>'+row2+'</tr>';
+    const sep=i>0?'<tr class="pair-sep"><td colspan="'+(1+accs.length*3)+'"></td></tr>':'';
+    return sep+row1+'</tr>'+row2+'</tr>';
   }).join('');
   document.getElementById("tblWrap").innerHTML='<div class="card tbl"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
   const errs=results.filter(r=>r.err);
