@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大宗商品持仓</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0f16'/%3E%3Ctext x='16' y='22' font-size='13' text-anchor='middle' fill='%23f0b90b' font-family='Arial' font-weight='bold'%3EXAU%3C/text%3E%3C/svg%3E">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0b0f16;color:#d8dee6;font-family:"Microsoft YaHei",system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+  .wrap{width:100%;max-width:980px;padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0 18px}
+  h1{font-size:22px;color:#f0b90b;font-weight:700;letter-spacing:1px}
+  .btn{background:#1c2430;color:#e6edf3;border:1px solid #2b3648;border-radius:8px;padding:9px 16px;font-size:14px;cursor:pointer}
+  .btn:hover{border-color:#f0b90b;color:#f0b90b}
+  .btn.gold{background:#f0b90b;color:#0b0f16;border-color:#f0b90b;font-weight:700}
+  .btn.gold:hover{background:#fcd34d}
+  .card{background:#111827;border:1px solid #232f42;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .btn.sm{padding:5px 10px;font-size:12px;border-radius:6px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:5px 6px;text-align:center;border-bottom:1px solid #1a2433}
+  th{color:#8b98ab;font-weight:600;font-size:12px}
+  td.sym{text-align:left;font-weight:600;color:#e6edf3}
+  td.long{color:#22c55e} td.short{color:#e05c53}
+  td.plus{color:#22c55e} td.minus{color:#e05c53} td.dash{color:#5b6a7e}
+  #status{padding:10px 16px;font-size:13px;color:#8b98ab;text-align:center;min-height:38px}
+  .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9}
+  .modal-mask.open{display:flex}
+  .modal{background:#111827;border:1px solid #2b3648;border-radius:12px;padding:20px;width:min(92vw,380px)}
+  .modal h3{font-size:16px;margin-bottom:14px;color:#f0b90b}
+  .modal input{width:100%;background:#0b0f16;border:1px solid #2b3648;border-radius:8px;color:#e6edf3;padding:9px 10px;font-size:14px;outline:none}
+  .modal input:focus{border-color:#f0b90b}
+  .modal .row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+  .empty{color:#5b6a7e;text-align:center;padding:40px 0;font-size:14px}
+  .modal{width:min(94vw,820px)}
+  .tip{font-size:12px;color:#8b98ab;margin-bottom:14px;line-height:1.6}
+  .arow{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
+  .arow input{flex:1;min-width:140px}
+  .arow .nm{flex:0 0 110px;min-width:110px}
+  .arow .del{border:none;background:none;color:#8b98ab;font-size:18px;cursor:pointer;padding:4px 8px;line-height:1}
+  .arow .del:hover{color:#e05c53}
+  .add-row{margin:2px 0 12px}
+  .modal-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .hint{font-size:12px;color:#8b98ab}
+  .op{text-align:center;white-space:nowrap}
+  .op-btn{min-width:44px;padding:4px 8px;font-size:11px;border-radius:6px}
+  .pos{white-space:nowrap}
+  .tbl td.sym{position:sticky;left:0;z-index:1;background:#111827}
+  .tbl tbody tr.alt td.sym{background:#26354f}
+  .tbl thead th.sym{position:sticky;left:0;z-index:2;background:#111827;border-right:1px solid #2b3648}
+  .ord-body{font-size:13px;line-height:1.9;color:#d8dee6}
+  .ord-body b{color:#f0b90b}
+  .ord-warn{margin-top:10px;padding:8px 10px;background:#2a1b1b;border:1px solid #5c2a2a;border-radius:6px;color:#e08a8a;font-size:12px}
+  #opLog{margin:0 0 10px;font-size:12px;line-height:1.8;text-align:center}
+  .oplog-item.ok{color:#22c55e}
+  .oplog-item.err{color:#e05c53}
+  .oplog-empty{color:#5b6a7e}
+  .tbl table{white-space:nowrap}
+  .tbl th[colspan]{text-align:center;border-bottom:2px solid #2b3648}
+  .tbl th:not([colspan]){color:#8b98ab}
+  .tbl td{border-right:1px solid #1a2433}
+  .tbl td:first-child{min-width:96px}
+  .ok{color:#22c55e;font-weight:600}
+  .bad{color:#e05c53;font-weight:600}
+  tbody tr.alt td{background:#26354f}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>大宗商品持仓</h1>
+    <button class="btn" onclick="loadAll()">刷新数据</button>
+    <button class="btn gold" onclick="openSet()">设置 API 密钥</button>
+  </header>
+  <main><div id="opLog"></div><div id="tblWrap" style="overflow-x:auto"></div><div id="status"></div></main>
+</div>
+
+<div class="modal-mask" id="ordMask">
+  <div class="modal">
+    <h3>确认下单</h3>
+    <div id="ordBody" class="ord-body"></div>
+    <div class="row">
+      <button class="btn" onclick="closeOrder()">取消</button>
+      <button class="btn gold" onclick="placeOrder()">确认下单</button>
+    </div>
+  </div>
+</div>
+<div class="modal-mask" id="mask">
+  <div class="modal">
+    <h3>设置 API 密钥</h3>
+    <p class="tip">每个账户一行：API Key + Secret。只读持仓权限即可，密钥只存本地浏览器 localStorage。</p>
+    <div id="accRows"></div>
+    <div class="add-row"><button class="btn sm" onclick="addRow()">+ 添加账户</button></div>
+    <div class="modal-foot">
+      <span class="hint">保存后点「刷新数据」</span>
+      <span style="display:flex;gap:10px">
+        <button class="btn" onclick="closeSet()">取消</button>
+        <button class="btn gold" onclick="saveSet()">保存</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============ 交易对（来自 大宗商品.txt） ============ */
+const PAIRS = [
+  ["CLUSDT","原油"],["BZUSDT","布伦特"],["XAGUSDT","白银"],["NATGASUSDT","天然气"],
+  ["COPPERUSDT","铜"],["XPTUSDT","铂金"],["XPDUSDT","钯金"],["USDBRLUSDT","雷亚尔"]
+];
+const API = "https://fapi.binance.com";
+const KEY = "cm_accounts_v1";
+
+/* ============ 账户存取（仅存浏览器本地） ============ */
+function loadAcc(){ try{ return JSON.parse(localStorage.getItem(KEY)||"[]"); }catch(e){ return []; } }
+function saveAcc(a){ localStorage.setItem(KEY, JSON.stringify(a)); }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+function fmtUsd(v){ return (v==null||isNaN(v)) ? "—" : "$"+v.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+/* ============ SHA-256 / HMAC（纯 JS 兜底） ============ */
+function _bytesToHex(b){ return Array.from(b).map(x=>x.toString(16).padStart(2,"0")).join(""); }
+function _sha256(data){
+  const K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+  const H=new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+  const R=(x,n)=>(x>>>n)|(x<<(32-n));
+  const total=(((data.length+9+63)>>>6)*64)>>>0, by=new Uint8Array(total);
+  by.set(data); by[data.length]=0x80;
+  const bitLen=data.length*8, dv=new DataView(by.buffer);
+  dv.setUint32(by.length-4,bitLen>>>0); dv.setUint32(by.length-8,Math.floor(bitLen/0x100000000));
+  const w=new Uint32Array(total/4);
+  for(let i=0;i<w.length;i++) w[i]=dv.getUint32(i*4);
+  const W=new Uint32Array(64);
+  for(let block=0;block<w.length;block+=16){
+    for(let t=0;t<16;t++) W[t]=w[block+t];
+    for(let t=16;t<64;t++){
+      const s0=R(W[t-15],7)^R(W[t-15],18)^(W[t-15]>>>3), s1=R(W[t-2],17)^R(W[t-2],19)^(W[t-2]>>>10);
+      W[t]=(W[t-16]+s0+W[t-7]+s1)>>>0;
+    }
+    let a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for(let t=0;t<64;t++){
+      const S1=R(e,6)^R(e,11)^R(e,25), ch=(e&f)^(~e&g), t1=(h+S1+ch+K[t]+W[t])>>>0;
+      const S0=R(a,2)^R(a,13)^R(a,22), maj=(a&b)^(a&c)^(b&c), t2=(S0+maj)>>>0;
+      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+    }
+    H[0]=(H[0]+a)>>>0;H[1]=(H[1]+b)>>>0;H[2]=(H[2]+c)>>>0;H[3]=(H[3]+d)>>>0;
+    H[4]=(H[4]+e)>>>0;H[5]=(H[5]+f)>>>0;H[6]=(H[6]+g)>>>0;H[7]=(H[7]+h)>>>0;
+  }
+  const out=new Uint8Array(32), ov=new DataView(out.buffer);
+  for(let i=0;i<8;i++) ov.setUint32(i*4,H[i]);
+  return out;
+}
+function _hmac(key,data){
+  const BLOCK=64; let k=new Uint8Array(BLOCK);
+  if(key.length>BLOCK) key=_sha256(key);
+  k.set(key);
+  const ipad=new Uint8Array(BLOCK), opad=new Uint8Array(BLOCK);
+  for(let i=0;i<BLOCK;i++){ ipad[i]=k[i]^0x36; opad[i]=k[i]^0x5c; }
+  const inner=new Uint8Array(BLOCK+data.length); inner.set(ipad); inner.set(data,BLOCK);
+  const outer=new Uint8Array(BLOCK+BLOCK); outer.set(opad); outer.set(_sha256(inner),BLOCK);
+  return _sha256(outer);
+}
+async function signQuery(query,secret){
+  const msg=new TextEncoder().encode(query), key=new TextEncoder().encode(secret);
+  if(window.crypto&&crypto.subtle){
+    try{
+      const ko=await crypto.subtle.importKey("raw",key,{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+      const sig=await crypto.subtle.sign("HMAC",ko,msg);
+      return _bytesToHex(new Uint8Array(sig));
+    }catch(e){}
+  }
+  return _bytesToHex(_hmac(key,msg));
+}
+
+/* ============ 时间同步 ============ */
+let serverRefMs=0, serverRefPerf=0, syncOk=false;
+async function ensureOffset(){
+  if(syncOk && performance.now()-serverRefPerf<60000) return;
+  try{
+    const r=await fetch(API+"/fapi/v1/time");
+    const d=await r.json();
+    const ms=Number(d.serverTime);
+    if(ms>0){ serverRefMs=ms; serverRefPerf=performance.now(); syncOk=true; return; }
+  }catch(e){}
+  syncOk=false;
+}
+async function nowMs(){
+  await ensureOffset();
+  return serverRefMs>0 ? Math.round(serverRefMs+(performance.now()-serverRefPerf)) : Date.now();
+}
+
+/* ============ 签名请求（统一封装：GET/POST） ============ */
+function posNotional(p){
+  return Math.abs(parseFloat(p.notional)) || Math.abs(parseFloat(p.positionAmt))*parseFloat(p.markPrice||p.entryPrice);
+}
+async function signedFetch(acc, path, method, params){
+  const all=Object.assign({timestamp:await nowMs(), recvWindow:10000}, params||{});
+  const qs=Object.keys(all).sort().map(k=>k+"="+encodeURIComponent(all[k])).join("&");
+  const sig=await signQuery(qs, acc.secret);
+  const opts={headers:{"X-MBX-APIKEY":acc.key}};
+  if(method==="POST") opts.headers["Content-Type"]="application/x-www-form-urlencoded";
+  const r=await fetch(API+path+"?"+qs+"&signature="+sig, Object.assign({method:method||"GET"}, opts));
+  return await r.json();
+}
+function setStatus(t){ document.getElementById("status").textContent=t; }
+function renderEmpty(){
+  document.getElementById("tblWrap").innerHTML='<div class="empty">尚未添加账户。点击右上角「设置 API 密钥」填入 API Key 后查看持仓。</div>';
+  setStatus("");
+}
+async function loadAll(){
+  const accs=loadAcc();
+  if(!accs.length){ renderEmpty(); return; }
+  setStatus("正在加载持仓…");
+  const results=await Promise.all(accs.map(async acc=>{
+    try{
+      const rows=await signedFetch(acc,"/fapi/v2/positionRisk");
+      if(rows.code===401 || rows.code===-2014){
+        throw new Error("API Key 无效或权限不足（-2014）");
+      }
+      if(!Array.isArray(rows)) throw new Error("接口异常："+(rows.msg||JSON.stringify(rows).slice(0,80)));
+      // 双向持仓模式同一交易对可能返回 LONG + SHORT 两条，按方向分开存
+      const map={};
+      rows.forEach(p=>{
+        if(!p.positionAmt) return;
+        const amt=parseFloat(p.positionAmt);
+        if(amt===0) return;
+        const side=amt>0?"long":"short";
+        map[p.symbol]=map[p.symbol]||{};
+        map[p.symbol][side]=p;
+      });
+      return {acc,map,err:null};
+    }catch(e){ return {acc,map:{},err:e.message}; }
+  }));
+  renderTable(accs,results);
+}
+function cellData(dir,p,accId,sym){
+  const amt=parseFloat(p.positionAmt);
+  const qty=Math.abs(amt);
+  const notional=posNotional(p);
+  const entry=parseFloat(p.entryPrice), upnl=parseFloat(p.unRealizedProfit), lev=parseFloat(p.leverage)||1;
+  const roi=(upnl/(qty*entry/lev))*100;
+  const roiTxt=isNaN(roi)?"—":roi.toFixed(2)+"%";
+  const roiCls=isNaN(roi)?"dash":(roi>=0?"plus":"minus");
+  const dirCls=dir==='多单'?"long":"short";
+  const dirTag=dir==='多单'?"多":"空";
+  return '<td class="pos"><span class="'+dirCls+'">'+dirTag+'</span> '+fmtUsd(notional)+'</td>'+
+    '<td class="'+roiCls+'">'+roiTxt+'</td>'+
+    '<td class="op"><button class="btn sm op-btn" onclick="openOrder('+accId+',\''+sym+'\',\''+dir+'\')">加仓</button></td>';
+}
+function cellEmpty(accId,sym,dir){
+  return '<td class="pos dash">—</td><td class="dash">—</td>'+
+    '<td class="op"><button class="btn sm op-btn" onclick="openOrder('+accId+',\''+sym+'\',\''+dir+'\')">开仓</button></td>';
+}
+let lastResults=[];
+function renderTable(accs,results){
+  lastResults=results;
+  const byAcc={};
+  results.forEach(r=>byAcc[r.acc.id]=r);
+  const head='<tr><th rowspan="2" class="sym">交易对</th>'+
+    accs.map(a=>{
+      const r=byAcc[a.id];
+      const st=(r&&r.err)?'<span class="bad" title="'+esc(r.err)+'">✗ 失败</span>':'<span class="ok">✓ OK</span>';
+      return '<th colspan="3">'+esc(a.name)+' '+st+'</th>';
+    }).join('')+
+    '</tr><tr>'+accs.map(()=>'<th>持仓(USDT)</th><th>ROI</th><th>操作</th>').join('')+'</tr>';
+  const body=PAIRS.map(([sym],i)=>{
+    // 一次取回各账户该交易对持仓，避免重复查询
+    const perAcc=accs.map(a=>{
+      const r=byAcc[a.id];
+      return (r&&!r.err)?r.map[sym]:null;
+    });
+    let sumLong=0, sumShort=0;
+    perAcc.forEach(m=>{
+      if(m&&m.long) sumLong+=Math.abs(parseFloat(m.long.positionAmt));
+      if(m&&m.short) sumShort+=Math.abs(parseFloat(m.short.positionAmt));
+    });
+    // 汇总所有账户该交易对的多单/空单数量，数量大的方向排前面
+    const d1=sumLong>=sumShort?"多单":"空单";
+    const d2=d1==="多单"?"空单":"多单";
+    const alt=i%2? ' class="alt"':'';
+    let row1='<tr'+alt+'><td class="sym" rowspan="2">'+sym+'</td>';
+    let row2='<tr'+alt+'>';
+    accs.forEach((a,idx)=>{
+      const m=perAcc[idx];
+      const p1=(d1==="多单")?(m&&m.long):(m&&m.short);
+      const p2=(d2==="多单")?(m&&m.long):(m&&m.short);
+      row1+=p1?cellData(d1,p1,a.id,sym):cellEmpty(a.id,sym,d1);
+      row2+=p2?cellData(d2,p2,a.id,sym):cellEmpty(a.id,sym,d2);
+    });
+    return row1+'</tr>'+row2+'</tr>';
+  }).join('');
+  document.getElementById("tblWrap").innerHTML='<div class="card tbl"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
+  const errs=results.filter(r=>r.err);
+  const cnts=results.map(r=>esc(r.acc.name)+(r.err?(" ✗ "+esc(r.err)):(" ✓ "+Object.keys(r.map).length+" 个持仓交易对"))).join("  ·  ");
+  setStatus((errs.length?(errs.length+" 个账户失败；"):"")+cnts);
+}
+/* ============ 操作记录（下单成功/失败，本地保存） ============ */
+function getLogs(){ try{ return JSON.parse(localStorage.getItem("op_log_v1")||"[]"); }catch(e){ return []; } }
+function addLog(type, text){
+  const logs=getLogs();
+  logs.unshift({t:Date.now(), type, text});
+  if(logs.length>50) logs.length=50;
+  try{ localStorage.setItem("op_log_v1", JSON.stringify(logs)); }catch(e){}
+  renderLog();
+}
+function renderLog(){
+  const logs=getLogs().slice(0,10);
+  const el=document.getElementById("opLog");
+  if(!logs.length){ el.innerHTML='<div class="oplog-empty">暂无操作记录</div>'; return; }
+  el.innerHTML=logs.map(l=>{
+    const d=new Date(l.t);
+    const hm=("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);
+    return '<div class="oplog-item '+l.type+'">'+hm+' '+esc(l.text)+'</div>';
+  }).join("");
+}
+/* ============ 下单（开仓 50 USDT / 等量加仓） ============ */
+let EXINFO=null, EXINFO_T=0;
+async function getStep(sym){
+  if(!EXINFO || Date.now()-EXINFO_T>300000){
+    const r=await fetch(API+"/fapi/v1/exchangeInfo");
+    EXINFO=await r.json(); EXINFO_T=Date.now();
+  }
+  const s=(EXINFO.symbols||[]).find(x=>x.symbol===sym);
+  const f=(s&&s.filters||[]).find(x=>x.filterType==="LOT_SIZE");
+  return f?parseFloat(f.stepSize):0.001;
+}
+function floorStep(v, step){
+  if(!step||step<=0) return v;
+  const dec=Math.max(0, -Math.floor(Math.log10(step)+1e-9));
+  return parseFloat((Math.floor(v/step)*step).toFixed(dec));
+}
+async function getDualSide(acc){
+  const j=await signedFetch(acc,"/fapi/v1/positionSideDual");
+  return !!j.dualSidePosition;
+}
+let PENDING=null;
+async function openOrder(accId, sym, dir){
+  const acc=loadAcc().find(x=>x.id===accId);
+  if(!acc) return;
+  const r=lastResults.find(x=>x.acc.id===accId);
+  const m=(r&&!r.err)?r.map[sym]:null;
+  const p=dir==='多单'?(m&&m.long):(m&&m.short);
+  let action, qty, usd;
+  if(p){
+    action="加仓";
+    qty=Math.abs(parseFloat(p.positionAmt));
+    usd=posNotional(p);
+  }else{
+    action="开仓";
+    try{
+      const tk=await fetch(API+"/fapi/v1/ticker/price?symbol="+sym);
+      const jt=await tk.json();
+      const price=parseFloat(jt.price);
+      const step=await getStep(sym);
+      qty=floorStep(50/price, step);
+      usd=qty*price;
+    }catch(e){ alert("获取当前价格失败，请重试"); return; }
+  }
+  const cn=(PAIRS.find(x=>x[0]===sym)||[])[1]||"";
+  PENDING={acc,sym,dir,action,qty,usd};
+  document.getElementById("ordBody").innerHTML=
+    '<div>账户：<b>'+esc(acc.name)+'</b></div>'+
+    '<div>交易对：<b>'+sym+' '+esc(cn)+'</b></div>'+
+    '<div>操作：<b>'+(action==="加仓"?"等量加仓":"开仓")+' '+dir+'</b></div>'+
+    '<div>数量：<b>'+qty+'</b>（约 '+fmtUsd(usd)+'）</div>'+
+    '<div>类型：市价单（按当前市价立即成交）</div>'+
+    '<div class="ord-warn">请确认账户余额充足。市价单可能产生滑点，成交后自动刷新持仓。</div>';
+  document.getElementById("ordMask").classList.add("open");
+}
+function closeOrder(){ document.getElementById("ordMask").classList.remove("open"); }
+async function placeOrder(){
+  const t=PENDING;
+  if(!t) return;
+  closeOrder();
+  PENDING=null;
+  try{
+    const dual=await getDualSide(t.acc);
+    const params={symbol:t.sym, side:t.dir==="多单"?"BUY":"SELL", type:"MARKET", quantity:String(t.qty), newOrderRespType:"ACK"};
+    if(dual) params.positionSide=t.dir==="多单"?"LONG":"SHORT";
+    const j=await signedFetch(t.acc,"/fapi/v1/order","POST",params);
+    if(j.orderId){
+      addLog("ok", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 数量 "+t.qty+"（订单 "+j.orderId+"）");
+      setStatus(t.acc.name+" "+t.sym+" "+t.dir+(t.action==="加仓"?"加仓":"开仓")+"成功（订单 "+j.orderId+"）");
+      loadAll();
+    }else{
+      addLog("err", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 失败："+(j.msg||JSON.stringify(j).slice(0,120)));
+      alert("下单失败："+(j.msg||JSON.stringify(j).slice(0,120)));
+    }
+  }catch(e){
+    addLog("err", t.acc.name+" "+t.sym+" "+(t.action==="加仓"?"加仓":"开仓")+t.dir+" 失败："+e.message);
+    alert("下单失败："+e.message);
+  }
+}
+function rowHtml(nm,key,secret){
+  return '<div class="arow">'+
+    '<input class="nm" value="'+esc(nm)+'" placeholder="账户名">'+
+    '<input class="ak" value="'+esc(key)+'" placeholder="API Key" autocomplete="off">'+
+    '<input class="as" value="'+esc(secret)+'" placeholder="API Secret" autocomplete="off" type="password">'+
+    '<button class="del" onclick="this.parentNode.remove()" title="删除该账户">×</button></div>';
+}
+function openSet(){
+  const accs=loadAcc();
+  document.getElementById("accRows").innerHTML = accs.length
+    ? accs.map(a=>rowHtml(a.name,a.key,a.secret)).join("")
+    : rowHtml("账户1","","");
+  document.getElementById("mask").classList.add("open");
+}
+function closeSet(){ document.getElementById("mask").classList.remove("open"); }
+function addRow(){
+  const n=document.getElementById("accRows").children.length;
+  document.getElementById("accRows").insertAdjacentHTML("beforeend", rowHtml("账户"+(n+1),"",""));
+}
+function saveSet(){
+  const accs=[];
+  document.querySelectorAll("#accRows .arow").forEach(row=>{
+    const key=row.querySelector(".ak").value.trim();
+    const secret=row.querySelector(".as").value.trim();
+    if(!key&&!secret) return;
+    const nm=(row.querySelector(".nm").value||"").trim()||("账户"+(accs.length+1));
+    accs.push({id:Date.now()+accs.length, name:nm, key, secret});
+  });
+  if(!accs.length){ alert("请至少填写一行 API Key + Secret"); return; }
+  saveAcc(accs);
+  closeSet();
+  loadAll();
+}
+loadAll();
+renderLog();
+</script>
+</body>
+</html>
