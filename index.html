@@ -299,11 +299,6 @@ function renderTable(accs,results){
 function getLogs(){ try{ return JSON.parse(localStorage.getItem("op_log_v1")||"[]"); }catch(e){ return []; } }
 function addLog(type, text, sym, acct){
   const logs=getLogs();
-  if(sym&&acct){
-    for(let i=logs.length-1;i>=0;i--){
-      if(logs[i]&&logs[i].sym===sym&&logs[i].acct===acct) logs.splice(i,1);
-    }
-  }
   logs.unshift({t:Date.now(), type, text, sym, acct});
   if(logs.length>50) logs.length=50;
   try{ localStorage.setItem("op_log_v1", JSON.stringify(logs)); }catch(e){}
