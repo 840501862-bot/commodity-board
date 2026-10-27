@@ -329,7 +329,7 @@ function floorStep(v, step){
   return parseFloat((Math.floor(v/step)*step).toFixed(dec));
 }
 async function getDualSide(acc){
-  const j=await signedFetch(acc,"/fapi/v1/positionSideDual");
+  const j=await signedFetch(acc,"/fapi/v1/positionSide/dual");
   return !!j.dualSidePosition;
 }
 let PENDING=null;
