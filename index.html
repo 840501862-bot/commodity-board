@@ -39,6 +39,7 @@
   .arow .nm{flex:0 0 110px;min-width:110px}
   .arow .del{border:none;background:none;color:#8b98ab;font-size:18px;cursor:pointer;padding:4px 8px;line-height:1}
   .arow .del:hover{color:#e05c53}
+  .arow .lbl5x{display:flex;align-items:center;gap:4px;color:#8b98ab;font-size:12px;white-space:nowrap}
   .add-row{margin:2px 0 12px}
   .modal-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;flex-wrap:wrap}
   .hint{font-size:12px;color:#8b98ab}
@@ -111,6 +112,9 @@ const PAIRS = [
 ];
 const API = "https://fapi.binance.com";
 const KEY = "cm_accounts_v1";
+/* 5倍杠杆账户 ROI 等比缩放：实际 7.5% = 正常 100% */
+const LEV5_SCALE = 100/7.5;
+function scaleRoi(is5x, roi){ return is5x ? roi*LEV5_SCALE : roi; }
 
 /* ============ 账户存取（仅存浏览器本地） ============ */
 function loadAcc(){ try{ return JSON.parse(localStorage.getItem(KEY)||"[]"); }catch(e){ return []; } }
@@ -233,19 +237,20 @@ async function loadAll(){
   }));
   renderTable(accs,results);
 }
-function cellData(dir,p,accId,sym){
+function cellData(dir,p,acc,sym){
   const amt=parseFloat(p.positionAmt);
   const qty=Math.abs(amt);
   const notional=posNotional(p);
   const entry=parseFloat(p.entryPrice), upnl=parseFloat(p.unRealizedProfit), lev=parseFloat(p.leverage)||1;
-  const roi=(upnl/(qty*entry/lev))*100;
+  let roi=(upnl/(qty*entry/lev))*100;
+  if(acc && acc.is5x) roi *= LEV5_SCALE;   // 5x 账户 ROI 等比缩放
   const roiTxt=isNaN(roi)?"—":roi.toFixed(2)+"%";
   const roiCls=isNaN(roi)?"dash":(roi>=0?"plus":"minus");
   const dirCls=dir==='多单'?"long":"short";
   const dirTag=dir==='多单'?"多":"空";
   return '<td class="pos"><span class="'+dirCls+'">'+dirTag+'</span> '+fmtUsd(notional)+'</td>'+
     '<td class="'+roiCls+'">'+roiTxt+'</td>'+
-    '<td class="op"><button class="btn sm op-btn" onclick="openOrder('+accId+',\''+sym+'\',\''+dir+'\')">加仓</button></td>';
+    '<td class="op"><button class="btn sm op-btn" onclick="openOrder('+acc.id+',\''+sym+'\',\''+dir+'\')">加仓</button></td>';
 }
 function cellEmpty(accId,sym,dir){
   return '<td class="pos dash">—</td><td class="dash">—</td>'+
@@ -260,7 +265,8 @@ function renderTable(accs,results){
     accs.map(a=>{
       const r=byAcc[a.id];
       const st=(r&&r.err)?'<span class="bad" title="'+esc(r.err)+'">✗ 失败</span>':'<span class="ok">✓ OK</span>';
-      return '<th colspan="3">'+esc(a.name)+' '+st+'</th>';
+      const fiveTag=a.is5x?' <span style="color:#a78bfa;font-size:11px">5x</span>':'';
+      return '<th colspan="3">'+esc(a.name)+fiveTag+' '+st+'</th>';
     }).join('')+
     '</tr><tr>'+accs.map(()=>'<th>持仓(USDT)</th><th>ROI</th><th>操作</th>').join('')+'</tr>';
   const body=PAIRS.map(([sym],i)=>{
@@ -284,8 +290,8 @@ function renderTable(accs,results){
       const m=perAcc[idx];
       const p1=(d1==="多单")?(m&&m.long):(m&&m.short);
       const p2=(d2==="多单")?(m&&m.long):(m&&m.short);
-      row1+=p1?cellData(d1,p1,a.id,sym):cellEmpty(a.id,sym,d1);
-      row2+=p2?cellData(d2,p2,a.id,sym):cellEmpty(a.id,sym,d2);
+      row1+=p1?cellData(d1,p1,a,sym):cellEmpty(a.id,sym,d1);
+      row2+=p2?cellData(d2,p2,a,sym):cellEmpty(a.id,sym,d2);
     });
     const sep=i>0?'<tr class="pair-sep"><td colspan="'+(1+accs.length*3)+'"></td></tr>':'';
     return sep+row1+'</tr>'+row2+'</tr>';
@@ -392,24 +398,26 @@ async function placeOrder(){
     alert("下单失败："+e.message);
   }
 }
-function rowHtml(nm,key,secret){
+function rowHtml(nm,key,secret,is5x){
   return '<div class="arow">'+
     '<input class="nm" value="'+esc(nm)+'" placeholder="账户名">'+
     '<input class="ak" value="'+esc(key)+'" placeholder="API Key" autocomplete="off">'+
     '<input class="as" value="'+esc(secret)+'" placeholder="API Secret" autocomplete="off" type="password">'+
+    '<label class="lbl5x" title="5倍杠杆账户：勾选后 ROI 按 7.5% = 100% 等比缩放显示">'+
+    '<input class="ax" type="checkbox" '+(is5x?"checked":"")+' style="cursor:pointer"> 5x</label>'+
     '<button class="del" onclick="this.parentNode.remove()" title="删除该账户">×</button></div>';
 }
 function openSet(){
   const accs=loadAcc();
   document.getElementById("accRows").innerHTML = accs.length
-    ? accs.map(a=>rowHtml(a.name,a.key,a.secret)).join("")
-    : rowHtml("账户1","","");
+    ? accs.map(a=>rowHtml(a.name,a.key,a.secret,a.is5x)).join("")
+    : rowHtml("账户1","","",false);
   document.getElementById("mask").classList.add("open");
 }
 function closeSet(){ document.getElementById("mask").classList.remove("open"); }
 function addRow(){
   const n=document.getElementById("accRows").children.length;
-  document.getElementById("accRows").insertAdjacentHTML("beforeend", rowHtml("账户"+(n+1),"",""));
+  document.getElementById("accRows").insertAdjacentHTML("beforeend", rowHtml("账户"+(n+1),"","",false));
 }
 function saveSet(){
   const accs=[];
@@ -418,7 +426,8 @@ function saveSet(){
     const secret=row.querySelector(".as").value.trim();
     if(!key&&!secret) return;
     const nm=(row.querySelector(".nm").value||"").trim()||("账户"+(accs.length+1));
-    accs.push({id:Date.now()+accs.length, name:nm, key, secret});
+    const is5x=!!(row.querySelector(".ax")&&row.querySelector(".ax").checked);
+    accs.push({id:Date.now()+accs.length, name:nm, key, secret, is5x});
   });
   if(!accs.length){ alert("请至少填写一行 API Key + Secret"); return; }
   saveAcc(accs);
