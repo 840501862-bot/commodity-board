@@ -246,6 +246,8 @@ function calcRoi(p,acc){
   if(acc && acc.is5x) roi *= LEV5_SCALE;   // 5x 账户 ROI 等比缩放
   return roi;
 }
+// ROI 是否达标（> -100%）；取不到 ROI 时按达标处理，避免误隐藏
+function roiOk(p,acc){ const roi=calcRoi(p,acc); return isNaN(roi)||roi>ROI_BLOCK; }
 function cellData(dir,p,acc,sym){
   const notional=posNotional(p);
   const roi=calcRoi(p,acc);
@@ -279,20 +281,35 @@ function renderTable(accs,results){
       return '<th colspan="3">'+esc(a.name)+fiveTag+' '+st+'</th>';
     }).join('')+
     '</tr><tr>'+accs.map(()=>'<th>持仓(USDT)</th><th>ROI</th><th>操作</th>').join('')+'</tr>';
-  const body=PAIRS.map(([sym],i)=>{
+  let hidden=0;
+  const rows=[];
+  PAIRS.forEach(([sym])=>{
     // 一次取回各账户该交易对持仓，避免重复查询
     const perAcc=accs.map(a=>{
       const r=byAcc[a.id];
       return (r&&!r.err)?r.map[sym]:null;
     });
-    let sumLong=0, sumShort=0;
-    perAcc.forEach(m=>{
-      if(m&&m.long) sumLong+=Math.abs(parseFloat(m.long.positionAmt));
-      if(m&&m.short) sumShort+=Math.abs(parseFloat(m.short.positionAmt));
+    let sumLong=0, sumShort=0, posCnt=0, okCnt=0;
+    perAcc.forEach((m,idx)=>{
+      if(!m) return;
+      const acc=accs[idx];
+      ["long","short"].forEach(side=>{
+        const p=m[side];
+        if(!p) return;
+        posCnt++;
+        if(side==="long") sumLong+=Math.abs(parseFloat(p.positionAmt));
+        else sumShort+=Math.abs(parseFloat(p.positionAmt));
+        if(roiOk(p,acc)) okCnt++;
+      });
     });
+    // 整体过滤：该交易对所有账户的多空仓位视为一体
+    // 一个仓位都没有 → 显示（可开仓）；有仓位且至少一个 ROI > -100% → 显示；
+    // 有仓位但全部 ROI ≤ -100%（整体亏穿）→ 不显示
+    if(posCnt>0 && okCnt===0){ hidden++; return; }
     // 汇总所有账户该交易对的多单/空单数量，数量大的方向排前面
     const d1=sumLong>=sumShort?"多单":"空单";
     const d2=d1==="多单"?"空单":"多单";
+    const i=rows.length;
     const alt=i%2? ' class="alt"':'';
     let row1='<tr'+alt+'><td class="sym" rowspan="2">'+sym+'</td>';
     let row2='<tr'+alt+'>';
@@ -304,12 +321,13 @@ function renderTable(accs,results){
       row2+=p2?cellData(d2,p2,a,sym):cellEmpty(a.id,sym,d2);
     });
     const sep=i>0?'<tr class="pair-sep"><td colspan="'+(1+accs.length*3)+'"></td></tr>':'';
-    return sep+row1+'</tr>'+row2+'</tr>';
-  }).join('');
+    rows.push(sep+row1+'</tr>'+row2+'</tr>');
+  });
+  const body=rows.length?rows.join(''):'<tr><td class="empty" colspan="'+(1+accs.length*3)+'">当前没有可显示的交易对（已有仓位均已跌破 -100%，或暂无持仓数据）</td></tr>';
   document.getElementById("tblWrap").innerHTML='<div class="card tbl"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
   const errs=results.filter(r=>r.err);
   const cnts=results.map(r=>esc(r.acc.name)+(r.err?(" ✗ "+esc(r.err)):(" ✓ "+Object.keys(r.map).length+" 个持仓交易对"))).join("  ·  ");
-  setStatus((errs.length?(errs.length+" 个账户失败；"):"")+cnts);
+  setStatus((errs.length?(errs.length+" 个账户失败；"):"")+cnts+(hidden?("  · 已隐藏 "+hidden+" 个整体跌破 -100% 的交易对"):""));
 }
 /* ============ 操作记录（下单成功/失败，本地保存） ============ */
 function getLogs(){ try{ return JSON.parse(localStorage.getItem("op_log_v1")||"[]"); }catch(e){ return []; } }
