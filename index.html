@@ -119,10 +119,8 @@ const KEY = "cm_accounts_v1";
 const LEV5_SCALE = 100/7.5;
 function scaleRoi(is5x, roi){ return is5x ? roi*LEV5_SCALE : roi; }
 
-/* ============ 显示模式（只加仓 / 全部，默认只加仓） ============ */
-const VIEW_KEY="cm_view_v1";
+/* ============ 显示模式（只加仓 / 全部，每次打开默认只加仓） ============ */
 let VIEW="add";
-try{ if(localStorage.getItem(VIEW_KEY)==="all") VIEW="all"; }catch(e){}
 function updateViewBtn(){
   const b=document.getElementById("viewBtn");
   if(!b) return;
@@ -133,7 +131,6 @@ function updateViewBtn(){
 }
 function toggleView(){
   VIEW = VIEW==="add" ? "all" : "add";
-  try{ localStorage.setItem(VIEW_KEY, VIEW); }catch(e){}
   updateViewBtn();
   if(lastResults.length) renderTable(loadAcc(), lastResults);
 }
