@@ -612,15 +612,19 @@ async function autoPass(){
     setStatus("自动开仓：当前没有符合开仓条件的交易对，"+CYCLE_SEC+" 秒后重新检测");
     return;
   }
+  let openedThisPass=0;
   for(const [sym] of targets){
     if(!AUTO) return;
-    let no=0;
+    if(!pairNeedsOpen(sym,accs)) continue;   // 处理前再判一次：已有仓位且未亏穿 → 不开
+    let opened=false, no=0;                  // opened：本交易对本次只开一单
     for(const a of accs){
+      if(opened) break;
       const rowState=lastResults.find(x=>x.acc.id===a.id);
       const accErr=!rowState || rowState.err;     // 账户数据异常 → 本轮跳过，避免重复开仓
       for(const dir of ["多单","空单"]){
         no++;
         if(!AUTO) return;
+        if(opened) break;                          // 已开成一单 → 放弃该交易对剩余编号
         if(accErr) continue;
         if(OPENED[slotKey(a.id,sym,dir)]) continue;      // 本会话已开过
         if(findPosOf(a.id,sym,dir)) continue;            // 已有仓位 → 不是开仓
@@ -628,6 +632,7 @@ async function autoPass(){
         const r=await autoOpen(a,sym,dir);
         if(r.ok){
           OPENED[slotKey(a.id,sym,dir)]=true;
+          opened=true; openedThisPass++;
           renderTable(accs,lastResults);                 // 立即刷新显示（该交易对随之隐藏）
         }else{
           setStatus("自动开仓：第 "+no+" 号 "+a.name+" "+sym+" "+dir+" 失败已跳过（"+r.msg+"），本轮结束后重试");
@@ -636,7 +641,7 @@ async function autoPass(){
       }
     }
   }
-  if(AUTO) setStatus("自动开仓：本轮扫描 "+targets.length+" 个符合条件交易对，已开 "+Object.keys(OPENED).length+" 个；"+CYCLE_SEC+" 秒后重试失败项（"+ (autoFails.length?autoFails.slice(-3).join("；"):"无") +"）");
+  if(AUTO) setStatus("自动开仓：本轮扫描 "+targets.length+" 个符合条件交易对，成功开 "+openedThisPass+" 个；"+CYCLE_SEC+" 秒后重新检测（"+ (autoFails.length?autoFails.slice(-3).join("；"):"无异常") +"）");
 }
 let autoFails=[];
 async function autoOpen(a,sym,dir){
