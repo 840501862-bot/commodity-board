@@ -500,23 +500,29 @@ function rulesReady(){
   return PAIRS.every(([s])=>!!RULES[s]);
 }
 // 首次进入后台预取一次，用户点「开仓」时不再等待大文件下载
+let rulesPromise=null;
+function fetchRules(){
+  if(rulesPromise) return rulesPromise;          // 并发请求合并成一次下载
+  rulesPromise=(async()=>{
+    try{
+      const info=await apiGet("/fapi/v1/exchangeInfo", 10000);
+      if(!info || !info.symbols) return false;
+      PAIRS.forEach(([s])=>{ const r=ruleFromInfo(info,s); if(r) RULES[s]=r; });
+      try{ localStorage.setItem(RULE_KEY, JSON.stringify({t:Date.now(), m:RULES})); }catch(e){}
+      return true;
+    }catch(e){ return false; }
+    finally{ rulesPromise=null; }
+  })();
+  return rulesPromise;
+}
 async function warmRules(){
   if(rulesWarm || rulesReady()) return;
   rulesWarm=true;
-  try{
-    const info=await apiGet("/fapi/v1/exchangeInfo", 10000);
-    if(info && info.symbols){
-      PAIRS.forEach(([s])=>{ const r=ruleFromInfo(info,s); if(r) RULES[s]=r; });
-      localStorage.setItem(RULE_KEY, JSON.stringify({t:Date.now(), m:RULES}));
-    }
-  }catch(e){ rulesWarm=false; }
+  if(!(await fetchRules())) rulesWarm=false;
 }
 async function getRule(sym){
   if(rulesReady() && RULES[sym]) return RULES[sym];
-  const info=await apiGet("/fapi/v1/exchangeInfo", 10000);
-  if(!info || !info.symbols) return null;
-  PAIRS.forEach(([s])=>{ const r=ruleFromInfo(info,s); if(r) RULES[s]=r; });
-  try{ localStorage.setItem(RULE_KEY, JSON.stringify({t:Date.now(), m:RULES})); }catch(e){}
+  await fetchRules();
   return RULES[sym]||null;
 }
 function stepDecimals(step){
