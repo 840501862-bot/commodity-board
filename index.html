@@ -73,6 +73,7 @@
 <div class="wrap">
   <header>
     <h1>大宗商品持仓</h1>
+    <button class="btn" id="viewBtn" onclick="toggleView()">显示：只加仓</button>
     <button class="btn" onclick="loadAll()">刷新数据</button>
     <button class="btn gold" onclick="openSet()">设置 API 密钥</button>
   </header>
@@ -117,6 +118,25 @@ const KEY = "cm_accounts_v1";
 /* 5倍杠杆账户 ROI 等比缩放：实际 7.5% = 正常 100% */
 const LEV5_SCALE = 100/7.5;
 function scaleRoi(is5x, roi){ return is5x ? roi*LEV5_SCALE : roi; }
+
+/* ============ 显示模式（只加仓 / 全部，默认只加仓） ============ */
+const VIEW_KEY="cm_view_v1";
+let VIEW="add";
+try{ if(localStorage.getItem(VIEW_KEY)==="all") VIEW="all"; }catch(e){}
+function updateViewBtn(){
+  const b=document.getElementById("viewBtn");
+  if(!b) return;
+  b.textContent = VIEW==="add" ? "显示：只加仓" : "显示：全部";
+  b.title = VIEW==="add"
+    ? "仅显示存在可加仓仓位（ROI 高于 -100%）的交易对，点击切换为全部"
+    : "显示全部交易对（含空仓、已亏穿的），点击切换为只加仓";
+}
+function toggleView(){
+  VIEW = VIEW==="add" ? "all" : "add";
+  try{ localStorage.setItem(VIEW_KEY, VIEW); }catch(e){}
+  updateViewBtn();
+  if(lastResults.length) renderTable(loadAcc(), lastResults);
+}
 
 /* ============ 账户存取（仅存浏览器本地） ============ */
 function loadAcc(){ try{ return JSON.parse(localStorage.getItem(KEY)||"[]"); }catch(e){ return []; } }
@@ -302,10 +322,10 @@ function renderTable(accs,results){
         if(roiOver(p,acc)) overCnt++;
       });
     });
-    // 整体过滤：该交易对所有账户的多空仓位视为一体
-    // 显示条件：一个仓位都没有；或已有仓位全部 ROI ≤ -100%（整体都亏穿）
-    // 只要有一个仓位仍高于 -100%，整对不显示
-    if(posCnt>0 && overCnt>0){ hidden++; return; }
+    // 视图过滤（该交易对所有账户的多空仓位视为一体）
+    // 只加仓：必须存在至少一个 ROI 高于 -100% 的仓位（可加仓）才显示；空仓/全部亏穿的不显示
+    // 全部：不做过滤，所有交易对都显示
+    if(VIEW==="add" && overCnt===0){ hidden++; return; }
     // 汇总所有账户该交易对的多单/空单数量，数量大的方向排前面
     const d1=sumLong>=sumShort?"多单":"空单";
     const d2=d1==="多单"?"空单":"多单";
@@ -323,11 +343,11 @@ function renderTable(accs,results){
     const sep=i>0?'<tr class="pair-sep"><td colspan="'+(1+accs.length*3)+'"></td></tr>':'';
     rows.push(sep+row1+'</tr>'+row2+'</tr>');
   });
-  const body=rows.length?rows.join(''):'<tr><td class="empty" colspan="'+(1+accs.length*3)+'">当前没有可显示的交易对（所有交易对都还有未跌破 -100% 的持仓）</td></tr>';
+  const body=rows.length?rows.join(''):'<tr><td class="empty" colspan="'+(1+accs.length*3)+'">'+(VIEW==="add"?"当前没有可加仓的交易对（没有 ROI 高于 -100% 的持仓）":"暂无可显示的交易对")+'</td></tr>';
   document.getElementById("tblWrap").innerHTML='<div class="card tbl"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
   const errs=results.filter(r=>r.err);
   const cnts=results.map(r=>esc(r.acc.name)+(r.err?(" ✗ "+esc(r.err)):(" ✓ "+Object.keys(r.map).length+" 个持仓交易对"))).join("  ·  ");
-  setStatus((errs.length?(errs.length+" 个账户失败；"):"")+cnts+(hidden?("  · 已隐藏 "+hidden+" 个仍有仓位未跌破 -100% 的交易对"):""));
+  setStatus((errs.length?(errs.length+" 个账户失败；"):"")+cnts+(VIEW==="add"&&hidden?("  · 已隐藏 "+hidden+" 个无可加仓仓位的交易对"):""));
 }
 /* ============ 操作记录（下单成功/失败，本地保存） ============ */
 function getLogs(){ try{ return JSON.parse(localStorage.getItem("op_log_v1")||"[]"); }catch(e){ return []; } }
@@ -507,6 +527,7 @@ function saveSet(){
   closeSet();
   loadAll();
 }
+updateViewBtn();
 loadAll();
 renderLog();
 </script>
