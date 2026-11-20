@@ -17,6 +17,10 @@
   .btn.gold:hover{background:#fcd34d}
   .btn:disabled{opacity:.45;cursor:not-allowed;border-color:#2b3648;color:#5b6a7e;background:#151b25}
   .btn.gold:disabled{background:#2a2410;color:#6b6237;border-color:#3a3320}
+  .pill{display:inline-block;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid #2b3648;color:#8b98ab;background:#151b25;white-space:nowrap}
+  .pill.green{color:#22c55e;border-color:#1f5133;background:#0f2318}
+  .pill.red{color:#e05c53;border-color:#5c2a2a;background:#2a1b1b}
+  .sno{display:inline-block;font-size:10px;color:#5b6a7e;margin-right:3px}
   .card{background:#111827;border:1px solid #232f42;border-radius:12px;padding:14px 16px;margin-bottom:16px}
   .btn.sm{padding:5px 10px;font-size:12px;border-radius:6px}
   table{width:100%;border-collapse:collapse;font-size:14px}
@@ -73,6 +77,9 @@
 <div class="wrap">
   <header>
     <h1>大宗商品持仓</h1>
+    <button class="btn" id="autoBtn" onclick="toggleAuto()">开始</button>
+    <span id="net" class="pill">● 网络 —</span>
+    <span id="cd" class="pill">—</span>
     <button class="btn" id="viewBtn" onclick="toggleView()">显示全部</button>
     <button class="btn" onclick="loadAll()">刷新数据</button>
     <button class="btn gold" onclick="openSet()">设置 API 密钥</button>
@@ -263,7 +270,7 @@ function calcRoi(p,acc){
 }
 // ROI 是否仍高于 -100%（即尚未亏穿）；取不到 ROI 时不算未亏穿
 function roiOver(p,acc){ const roi=calcRoi(p,acc); return !isNaN(roi) && roi>ROI_BLOCK; }
-function cellData(dir,p,acc,sym){
+function cellData(dir,p,acc,sym,no){
   const notional=posNotional(p);
   const roi=calcRoi(p,acc);
   const roiTxt=isNaN(roi)?"—":roi.toFixed(2)+"%";
@@ -277,11 +284,15 @@ function cellData(dir,p,acc,sym){
     : '<button class="btn sm op-btn" onclick="openOrder('+acc.id+',\''+sym+'\',\''+dir+'\')">加仓</button>';
   return '<td class="pos"><span class="'+dirCls+'">'+dirTag+'</span> '+fmtUsd(notional)+'</td>'+
     '<td class="'+roiCls+'">'+roiTxt+'</td>'+
-    '<td class="op">'+opBtn+'</td>';
+    '<td class="op"><span class="sno">#'+no+'</span>'+opBtn+'</td>';
 }
-function cellEmpty(accId,sym,dir){
+function cellEmpty(accId,sym,dir,no){
+  if(OPENED[slotKey(accId,sym,dir)]){
+    return '<td class="pos dash">—</td><td class="dash">—</td>'+
+      '<td class="op dash"><span class="sno">#'+no+'</span>已开仓</td>';
+  }
   return '<td class="pos dash">—</td><td class="dash">—</td>'+
-    '<td class="op"><button class="btn sm op-btn" onclick="openOrder('+accId+',\''+sym+'\',\''+dir+'\')">开仓</button></td>';
+    '<td class="op"><span class="sno">#'+no+'</span><button class="btn sm op-btn" onclick="openOrder('+accId+',\''+sym+'\',\''+dir+'\')">开仓</button></td>';
 }
 let lastResults=[];
 function renderTable(accs,results){
@@ -317,10 +328,15 @@ function renderTable(accs,results){
         if(roiOver(p,acc)) overCnt++;
       });
     });
+    // 本轮自动开仓已成功的仓位也算作「有仓位」，先于数据刷新即时生效
+    let openedCnt=0;
+    accs.forEach(a=>{
+      ["多单","空单"].forEach(d=>{ if(OPENED[slotKey(a.id,sym,d)]) openedCnt++; });
+    });
     // 整体过滤：该交易对所有账户的多空仓位视为一体
     // 显示条件：一个仓位都没有；或已有仓位全部 ROI ≤ -100%（整体都亏穿）
     // 只要有一个仓位仍高于 -100%，整对不显示（点「显示全部」可临时不过滤）
-    if(VIEW!=="all" && posCnt>0 && overCnt>0){ hidden++; return; }
+    if(VIEW!=="all" && (posCnt+openedCnt)>0 && (overCnt+openedCnt)>0){ hidden++; return; }
     // 汇总所有账户该交易对的多单/空单数量，数量大的方向排前面
     const d1=sumLong>=sumShort?"多单":"空单";
     const d2=d1==="多单"?"空单":"多单";
@@ -332,8 +348,9 @@ function renderTable(accs,results){
       const m=perAcc[idx];
       const p1=(d1==="多单")?(m&&m.long):(m&&m.short);
       const p2=(d2==="多单")?(m&&m.long):(m&&m.short);
-      row1+=p1?cellData(d1,p1,a,sym):cellEmpty(a.id,sym,d1);
-      row2+=p2?cellData(d2,p2,a,sym):cellEmpty(a.id,sym,d2);
+      const nLong=idx*2+1, nShort=idx*2+2;   // 该交易对下的编号：账户1多=1/空=2，账户2多=3/空=4 …
+      row1+=p1?cellData(d1,p1,a,sym,d1==="多单"?nLong:nShort):cellEmpty(a.id,sym,d1,d1==="多单"?nLong:nShort);
+      row2+=p2?cellData(d2,p2,a,sym,d2==="多单"?nLong:nShort):cellEmpty(a.id,sym,d2,d2==="多单"?nLong:nShort);
     });
     const sep=i>0?'<tr class="pair-sep"><td colspan="'+(1+accs.length*3)+'"></td></tr>':'';
     rows.push(sep+row1+'</tr>'+row2+'</tr>');
@@ -487,6 +504,168 @@ async function placeOrder(){
     alert("下单失败："+e.message);
   }
 }
+/* ============ 自动开仓（9 秒循环 · 读秒 · 网络状态） ============ */
+const CYCLE_SEC=9;          // 每轮刷新间隔（秒）
+const ORDER_GAP_MS=2000;    // 每笔开仓之间的间隔，避免连开
+let AUTO=false, autoRunning=false, cdLeft=CYCLE_SEC, cdTimer=null;
+let OPENED={};              // "accId|sym|dir" → 本次自动开仓已成功，避免重复下单
+function slotKey(accId,sym,dir){ return accId+"|"+sym+"|"+dir; }
+function sleepWait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+async function sleepAuto(ms){          // 可被「停止」打断的等待
+  const t0=Date.now();
+  while(Date.now()-t0<ms){ if(!AUTO) return false; await sleepWait(200); }
+  return true;
+}
+function renderCd(){
+  const el=document.getElementById("cd");
+  if(el) el.textContent = AUTO ? (cdLeft+"s") : "—";
+}
+function setNet(ok){
+  const el=document.getElementById("net");
+  if(!el) return;
+  el.textContent = ok?"● 网络正常":"● 网络异常";
+  el.className = "pill "+(ok?"green":"red");
+}
+async function pingNet(){
+  try{
+    const r=await fetch(API+"/fapi/v1/time?t="+Date.now(),{cache:"no-store"});
+    const j=await r.json();
+    if(!(Number(j.serverTime)>0)) throw new Error("bad time");
+    setNet(true); return true;
+  }catch(e){ setNet(false); return false; }
+}
+function findPosOf(accId,sym,dir){
+  const r=lastResults.find(x=>x.acc.id===accId);
+  if(!r || r.err) return null;
+  const m=r.map[sym];
+  return dir==="多单" ? (m&&m.long) : (m&&m.short);
+}
+async function toggleAuto(){
+  if(AUTO){ stopAuto(); return; }
+  if(autoRunning) return;
+  AUTO=true; OPENED={}; autoFails=[];
+  const b=document.getElementById("autoBtn");
+  if(b){ b.textContent="停止"; b.classList.add("gold"); }
+  cdLeft=CYCLE_SEC; renderCd();
+  setStatus("自动开仓已启动，正在检测…");
+  autoRun();
+}
+function stopAuto(){
+  AUTO=false;
+  clearInterval(cdTimer); cdTimer=null;
+  cdLeft=CYCLE_SEC; renderCd();
+  const b=document.getElementById("autoBtn");
+  if(b){ b.textContent="开始"; b.classList.remove("gold"); }
+  setStatus("已停止自动开仓");
+}
+async function cycleWait(){
+  return new Promise(res=>{
+    cdLeft=CYCLE_SEC; renderCd();
+    clearInterval(cdTimer);
+    cdTimer=setInterval(()=>{
+      if(!AUTO){ clearInterval(cdTimer); cdTimer=null; cdLeft=0; renderCd(); res(); return; }
+      cdLeft--;
+      renderCd();
+      if(cdLeft<=0){ clearInterval(cdTimer); cdTimer=null; res(); }
+    },1000);
+  });
+}
+async function autoRun(){
+  if(autoRunning) return;
+  autoRunning=true;
+  try{
+    while(AUTO){
+      await pingNet();
+      if(!AUTO) break;
+      await loadAll();                 // 9 秒一轮的持仓刷新
+      if(!AUTO) break;
+      // 已确认落地的仓位从「待开仓」名单里移除
+      for(const k in OPENED){
+        const p=k.split("|");
+        if(findPosOf(Number(p[0]),p[1],p[2])) delete OPENED[k];
+      }
+      await autoPass();
+      if(!AUTO) break;
+      await cycleWait();               // 读秒，等下一轮
+    }
+  }finally{ autoRunning=false; }
+}
+// 该交易对是否符合「开仓」条件（与表格筛选同一口径）：
+// 没有任何仓位，或所有已有仓位 ROI 都 ≤ -100%
+function pairNeedsOpen(sym,accs){
+  let posCnt=0, overCnt=0, openedCnt=0;
+  for(const a of accs){
+    ["多单","空单"].forEach(dir=>{
+      if(OPENED[slotKey(a.id,sym,dir)]) openedCnt++;
+      const p=findPosOf(a.id,sym,dir);
+      if(p){ posCnt++; if(roiOver(p,a)) overCnt++; }
+    });
+  }
+  return (posCnt+openedCnt)===0 || (overCnt+openedCnt)===0;
+}
+async function autoPass(){
+  const accs=loadAcc();
+  if(!accs.length){ setStatus("自动开仓：尚未设置账户"); return; }
+  // 只扫当前筛选出来的交易对，不做全盘扫描
+  const targets=PAIRS.filter(([sym])=>pairNeedsOpen(sym,accs));
+  if(!targets.length){
+    setStatus("自动开仓：当前没有符合开仓条件的交易对，"+CYCLE_SEC+" 秒后重新检测");
+    return;
+  }
+  for(const [sym] of targets){
+    if(!AUTO) return;
+    let no=0;
+    for(const a of accs){
+      const rowState=lastResults.find(x=>x.acc.id===a.id);
+      const accErr=!rowState || rowState.err;     // 账户数据异常 → 本轮跳过，避免重复开仓
+      for(const dir of ["多单","空单"]){
+        no++;
+        if(!AUTO) return;
+        if(accErr) continue;
+        if(OPENED[slotKey(a.id,sym,dir)]) continue;      // 本会话已开过
+        if(findPosOf(a.id,sym,dir)) continue;            // 已有仓位 → 不是开仓
+        setStatus("自动开仓：第 "+no+" 号 "+a.name+" "+sym+" "+dir+" 开仓中…");
+        const r=await autoOpen(a,sym,dir);
+        if(r.ok){
+          OPENED[slotKey(a.id,sym,dir)]=true;
+          renderTable(accs,lastResults);                 // 立即刷新显示（该交易对随之隐藏）
+        }else{
+          setStatus("自动开仓：第 "+no+" 号 "+a.name+" "+sym+" "+dir+" 失败已跳过（"+r.msg+"），本轮结束后重试");
+        }
+        if(!(await sleepAuto(ORDER_GAP_MS))) return;     // 单笔间隔，避免连开
+      }
+    }
+  }
+  if(AUTO) setStatus("自动开仓：本轮扫描 "+targets.length+" 个符合条件交易对，已开 "+Object.keys(OPENED).length+" 个；"+CYCLE_SEC+" 秒后重试失败项（"+ (autoFails.length?autoFails.slice(-3).join("；"):"无") +"）");
+}
+let autoFails=[];
+async function autoOpen(a,sym,dir){
+  try{
+    const rule=await getRule(sym);
+    if(!rule || !rule.minNotional) throw new Error("未获取到系统最小开仓额");
+    const tk=await fetch(API+"/fapi/v1/ticker/price?symbol="+sym+"&t="+Date.now(),{cache:"no-store"});
+    const jt=await tk.json();
+    const price=parseFloat(jt.price);
+    if(!(price>0)) throw new Error("获取价格失败");
+    let qty=ceilStep(rule.minNotional/price, rule.step);
+    if(rule.minQty>0 && qty<rule.minQty) qty=rule.minQty;
+    if(qty*price<rule.minNotional) qty=ceilStep(rule.minNotional*1.001/price, rule.step);
+    const dual=await getDualSide(a);
+    const params={symbol:sym, side:dir==="多单"?"BUY":"SELL", type:"MARKET", quantity:String(qty), newOrderRespType:"ACK"};
+    if(dual) params.positionSide=dir==="多单"?"LONG":"SHORT";
+    const j=await signedFetch(a,"/fapi/v1/order","POST",params);
+    if(!j.orderId) throw new Error(j.msg||JSON.stringify(j).slice(0,100));
+    addLog("ok", a.name+" "+sym+" 自动开仓"+dir+" 数量 "+qty+"（订单 "+j.orderId+"）", sym, a.name);
+    return {ok:true};
+  }catch(e){
+    const note=a.name+" "+sym+dir+"："+e.message;
+    if(autoFails[autoFails.length-1]!==note){
+      autoFails.push(note); if(autoFails.length>20) autoFails.shift();
+    }
+    addLog("err", a.name+" "+sym+" 自动开仓"+dir+" 失败："+e.message, sym, a.name);
+    return {ok:false,msg:e.message};
+  }
+}
 function rowHtml(nm,key,secret,is5x){
   return '<div class="arow">'+
     '<input class="nm" value="'+esc(nm)+'" placeholder="账户名">'+
@@ -524,6 +703,7 @@ function saveSet(){
   loadAll();
 }
 updateViewBtn();
+pingNet();
 loadAll();
 renderLog();
 </script>
