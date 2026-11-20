@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>大宗商品持仓</title>
+<link rel="preconnect" href="https://fapi.binance.com" crossorigin>
+<link rel="dns-prefetch" href="https://fapi.binance.com">
+<link rel="dns-prefetch" href="https://fapi1.binance.com">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0f16'/%3E%3Ctext x='16' y='22' font-size='13' text-anchor='middle' fill='%23f0b90b' font-family='Arial' font-weight='bold'%3EXAU%3C/text%3E%3C/svg%3E">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -121,7 +124,12 @@ const PAIRS = [
   ["CLUSDT","原油"],["BZUSDT","布伦特"],["XAGUSDT","白银"],["NATGASUSDT","天然气"],
   ["COPPERUSDT","铜"],["XPTUSDT","铂金"],["XPDUSDT","钯金"],["USDBRLUSDT","雷亚尔"]
 ];
-const API = "https://fapi.binance.com";
+/* 主域名卡住时自动切换备用域名 */
+const API_LIST = ["https://fapi.binance.com","https://fapi1.binance.com"];
+let API = API_LIST[0];
+const GET_TIMEOUT = 4500;      // 单个只读请求超时
+const POST_TIMEOUT = 12000;    // 下单请求超时（下单不跨域名重试，避免重复成交）
+const CACHE_KEY = "cm_cache_v2";
 const KEY = "cm_accounts_v1";
 /* 5倍杠杆账户 ROI 等比缩放：实际 7.5% = 正常 100% */
 const LEV5_SCALE = 100/7.5;
@@ -201,45 +209,125 @@ async function signQuery(query,secret){
   return _bytesToHex(_hmac(key,msg));
 }
 
-/* ============ 时间同步 ============ */
-let serverRefMs=0, serverRefPerf=0, syncOk=false;
-async function ensureOffset(){
-  if(syncOk && performance.now()-serverRefPerf<60000) return;
+/* ============ 网络层：超时控制 + 备用域名 ============ */
+async function httpJson(url, opts, timeoutMs){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(), timeoutMs);
   try{
-    const r=await fetch(API+"/fapi/v1/time");
-    const d=await r.json();
-    const ms=Number(d.serverTime);
-    if(ms>0){ serverRefMs=ms; serverRefPerf=performance.now(); syncOk=true; return; }
-  }catch(e){}
-  syncOk=false;
+    const r=await fetch(url, Object.assign({cache:"no-store"}, opts||{}, {signal:ctrl.signal}));
+    let body=null;
+    try{ body=await r.json(); }catch(e){ body=null; }
+    if(body===null) throw new Error("响应异常（HTTP "+r.status+"）");
+    return body;
+  }catch(e){
+    const m=String((e&&e.name)||"")+" "+String((e&&e.message)||"");
+    if(/abort/i.test(m)) throw new Error("请求超时（网络不稳定）");
+    if(/failed to fetch|networkerror|fetch failed/i.test(m)) throw new Error("网络连接失败");
+    throw e;
+  }finally{ clearTimeout(timer); }
 }
-async function nowMs(){
-  await ensureOffset();
-  return serverRefMs>0 ? Math.round(serverRefMs+(performance.now()-serverRefPerf)) : Date.now();
+function altHost(){ return API===API_LIST[0] ? API_LIST[1] : API_LIST[0]; }
+// 只读请求：主域名超时/失败立即换备用域名，整体上限约 2 倍超时，不会无限等待
+async function apiGet(path, timeoutMs){
+  const t=timeoutMs||GET_TIMEOUT;
+  try{
+    return await httpJson(API+path, {method:"GET"}, t);
+  }catch(e){
+    const h=altHost();
+    const j=await httpJson(h+path, {method:"GET"}, t);
+    API=h;
+    return j;
+  }
 }
+
+/* ============ 时间同步（不阻塞页面：先用本地时间+偏差，失败再校正） ============ */
+let offMs=0, syncOk=false, lastSync=0, syncToken=null;
+async function syncOnce(){
+  if(syncToken) return syncToken;
+  syncToken=(async()=>{
+    try{
+      const j=await apiGet("/fapi/v1/time?t="+Date.now(), 4000);
+      const ms=Number(j.serverTime);
+      if(!(ms>0)) throw new Error("bad time");
+      offMs=ms-Date.now(); syncOk=true; lastSync=Date.now(); setNet(true);
+      return true;
+    }catch(e){ setNet(false); return false; }
+    finally{ syncToken=null; }
+  })();
+  return syncToken;
+}
+async function syncTime(force){
+  if(!force && syncOk && Date.now()-lastSync<60000) return true;
+  return await syncOnce();
+}
+function nowMs(){ return Date.now()+offMs; }
 
 /* ============ 签名请求（统一封装：GET/POST） ============ */
 function posNotional(p){
   return Math.abs(parseFloat(p.notional)) || Math.abs(parseFloat(p.positionAmt))*parseFloat(p.markPrice||p.entryPrice);
 }
 async function signedFetch(acc, path, method, params){
-  const all=Object.assign({timestamp:await nowMs(), recvWindow:10000}, params||{});
-  const qs=Object.keys(all).sort().map(k=>k+"="+encodeURIComponent(all[k])).join("&");
-  const sig=await signQuery(qs, acc.secret);
-  const opts={headers:{"X-MBX-APIKEY":acc.key}};
-  if(method==="POST") opts.headers["Content-Type"]="application/x-www-form-urlencoded";
-  const r=await fetch(API+path+"?"+qs+"&signature="+sig, Object.assign({method:method||"GET"}, opts));
-  return await r.json();
+  const m=method||"GET";
+  const once=async()=>{
+    const all=Object.assign({timestamp:nowMs(), recvWindow:10000}, params||{});
+    const qs=Object.keys(all).sort().map(k=>k+"="+encodeURIComponent(all[k])).join("&");
+    const sig=await signQuery(qs, acc.secret);
+    const opts={method:m, headers:{"X-MBX-APIKEY":acc.key}};
+    if(m==="POST") opts.headers["Content-Type"]="application/x-www-form-urlencoded";
+    const url=path+"?"+qs+"&signature="+sig;
+    if(m==="POST") return await httpJson(API+url, opts, POST_TIMEOUT);   // 下单不切域名重试，避免重复成交
+    try{ return await httpJson(API+url, opts, GET_TIMEOUT); }
+    catch(e){
+      const h=altHost();
+      const j=await httpJson(h+url, opts, GET_TIMEOUT);
+      API=h;
+      return j;
+    }
+  };
+  let j=await once();
+  if(j && (j.code===-1021 || j.code===-1022)){   // 时间戳偏差：校正一次后重发
+    await syncTime(true);
+    j=await once();
+  }
+  return j;
 }
 function setStatus(t){ document.getElementById("status").textContent=t; }
 function renderEmpty(){
   document.getElementById("tblWrap").innerHTML='<div class="empty">尚未添加账户。点击右上角「设置 API 密钥」填入 API Key 后查看持仓。</div>';
   setStatus("");
 }
+/* ============ 持仓缓存：刷新优先用上次数据秒开，再后台刷新 ============ */
+function hhmmss(d){
+  return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);
+}
+function saveCache(results){
+  try{
+    const r=results.map(x=>({id:x.acc.id, err:x.err||null, map:x.map||{}}));
+    localStorage.setItem(CACHE_KEY, JSON.stringify({t:Date.now(), r:r}));
+  }catch(e){}
+}
+function renderCache(accs){
+  let d=null;
+  try{ d=JSON.parse(localStorage.getItem(CACHE_KEY)||"null"); }catch(e){}
+  if(!d || !d.r || !d.r.length) return false;
+  const results=d.r.map(x=>{
+    const acc=accs.find(a=>a.id===x.id);
+    return acc ? {acc:acc, map:x.map||{}, err:x.err||null} : null;
+  }).filter(Boolean);
+  if(!results.length) return false;
+  renderTable(accs,results);
+  cacheTime=new Date(d.t);
+  setStatus("已显示 "+hhmmss(cacheTime)+" 的缓存数据，正在刷新…");
+  return true;
+}
+let cacheTime=null, loading=false;
 async function loadAll(){
   const accs=loadAcc();
   if(!accs.length){ renderEmpty(); return; }
-  setStatus("正在加载持仓…");
+  if(loading) return;                      // 自动刷新与手动刷新不叠加
+  loading=true;
+  const t0=Date.now();
+  setStatus("正在刷新持仓…"+(cacheTime?("（先显示 "+hhmmss(cacheTime)+" 的缓存）"):""));
   const results=await Promise.all(accs.map(async acc=>{
     try{
       const rows=await signedFetch(acc,"/fapi/v2/positionRisk");
@@ -260,7 +348,14 @@ async function loadAll(){
       return {acc,map,err:null};
     }catch(e){ return {acc,map:{},err:e.message}; }
   }));
-  renderTable(accs,results);
+  try{
+    renderTable(accs,results);
+    saveCache(results);
+    const el=document.getElementById("status");
+    el.textContent += " · 耗时 "+((Date.now()-t0)/1000).toFixed(1)+"s";
+    cacheTime=null;
+  }finally{ loading=false; }
+  warmRules();
 }
 function calcRoi(p,acc){
   const qty=Math.abs(parseFloat(p.positionAmt));
@@ -375,13 +470,12 @@ function renderLog(){
 }
 /* ============ 下单（系统最小金额开仓 / 等量加仓 / ROI ≤ -100% 禁止加仓） ============ */
 const ROI_BLOCK = -100;   // 投资回报率 ≤ -100%：禁止加仓
-let EXINFO=null, EXINFO_T=0;
-async function getRule(sym){
-  if(!EXINFO || Date.now()-EXINFO_T>300000){
-    const r=await fetch(API+"/fapi/v1/exchangeInfo");
-    EXINFO=await r.json(); EXINFO_T=Date.now();
-  }
-  const s=(EXINFO.symbols||[]).find(x=>x.symbol===sym);
+/* 交易规则（步长/最小数量/最小开仓额）本地缓存 7 天：exchangeInfo 体积很大，不再每次开仓都整份下载 */
+const RULE_KEY = "cm_rules_v1";
+const RULE_TTL = 7*24*3600*1000;
+let RULES=null, rulesWarm=false;
+function ruleFromInfo(info, sym){
+  const s=(info.symbols||[]).find(x=>x.symbol===sym);
   if(!s) return null;
   const f={}; (s.filters||[]).forEach(x=>{ f[x.filterType]=x; });
   const lot=f.MARKET_LOT_SIZE||f.LOT_SIZE||{};
@@ -392,6 +486,38 @@ async function getRule(sym){
     minQty: parseFloat(lot.minQty)||0,
     minNotional: parseFloat((f.MIN_NOTIONAL||{}).notional)||0
   };
+}
+function loadRulesCache(){
+  if(RULES) return;
+  try{
+    const d=JSON.parse(localStorage.getItem(RULE_KEY)||"null");
+    if(d && d.m && Date.now()-d.t<RULE_TTL) RULES=d.m;
+  }catch(e){}
+  if(!RULES) RULES={};
+}
+function rulesReady(){
+  loadRulesCache();
+  return PAIRS.every(([s])=>!!RULES[s]);
+}
+// 首次进入后台预取一次，用户点「开仓」时不再等待大文件下载
+async function warmRules(){
+  if(rulesWarm || rulesReady()) return;
+  rulesWarm=true;
+  try{
+    const info=await apiGet("/fapi/v1/exchangeInfo", 10000);
+    if(info && info.symbols){
+      PAIRS.forEach(([s])=>{ const r=ruleFromInfo(info,s); if(r) RULES[s]=r; });
+      localStorage.setItem(RULE_KEY, JSON.stringify({t:Date.now(), m:RULES}));
+    }
+  }catch(e){ rulesWarm=false; }
+}
+async function getRule(sym){
+  if(rulesReady() && RULES[sym]) return RULES[sym];
+  const info=await apiGet("/fapi/v1/exchangeInfo", 10000);
+  if(!info || !info.symbols) return null;
+  PAIRS.forEach(([s])=>{ const r=ruleFromInfo(info,s); if(r) RULES[s]=r; });
+  try{ localStorage.setItem(RULE_KEY, JSON.stringify({t:Date.now(), m:RULES})); }catch(e){}
+  return RULES[sym]||null;
 }
 function stepDecimals(step){
   const s=String(step), i=s.indexOf(".");
@@ -409,10 +535,12 @@ async function getDualSide(acc){
 }
 // 按系统最小开仓额折算下单数量（向上取整到步长，不低于 minQty / minNotional）
 async function openPlan(sym){
-  const rule=await getRule(sym);
+  const [rule, tk]=await Promise.all([
+    getRule(sym),
+    apiGet("/fapi/v1/ticker/price?symbol="+sym+"&t="+Date.now(), 5000)
+  ]);
   if(!rule || !rule.minNotional) throw new Error("未获取到系统最小开仓额");
-  const r=await fetch(API+"/fapi/v1/ticker/price?symbol="+sym+"&t="+Date.now(),{cache:"no-store"});
-  const price=parseFloat((await r.json()).price);
+  const price=parseFloat(tk && tk.price);
   if(!(price>0)) throw new Error("获取价格失败");
   let qty=ceilStep(rule.minNotional/price, rule.step);
   if(rule.minQty>0 && qty<rule.minQty) qty=rule.minQty;
@@ -463,7 +591,7 @@ async function openOrder(accId, sym, dir){
 function closeOrder(){ document.getElementById("ordMask").classList.remove("open"); }
 // 实时查单个方向的持仓（下单前复核用）
 async function livePos(acc,sym,dir){
-  const rows=await signedFetch(acc,"/fapi/v2/positionRisk",{symbol:sym});
+  const rows=await signedFetch(acc,"/fapi/v2/positionRisk","GET",{symbol:sym});
   if(!Array.isArray(rows)) throw new Error("持仓查询失败，已取消下单");
   const sign=dir==="多单"?1:-1;
   return rows.find(x=>x.symbol===sym && Math.sign(parseFloat(x.positionAmt)||0)===sign)||null;
@@ -527,12 +655,8 @@ function setNet(ok){
   el.className = "pill "+(ok?"green":"red");
 }
 async function pingNet(){
-  try{
-    const r=await fetch(API+"/fapi/v1/time?t="+Date.now(),{cache:"no-store"});
-    const j=await r.json();
-    if(!(Number(j.serverTime)>0)) throw new Error("bad time");
-    setNet(true); return true;
-  }catch(e){ setNet(false); return false; }
+  if(syncOk && Date.now()-lastSync<5000) return true;   // 5 秒内刚测过，不重复请求
+  return await syncOnce();
 }
 function findPosOf(accId,sym,dir){
   const r=lastResults.find(x=>x.acc.id===accId);
@@ -689,9 +813,16 @@ function saveSet(){
   loadAll();
 }
 updateViewBtn();
+renderLog();
+/* 打开/刷新先用上次缓存秒出内容，再后台刷新 */
+const bootAcc=loadAcc();
+if(bootAcc.length) renderCache(bootAcc); else renderEmpty();
 pingNet();
 loadAll();
-renderLog();
+/* Service Worker：页面与静态资源走本地缓存，刷新不再等 github.io 首字节 */
+if("serviceWorker" in navigator){
+  addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+}
 </script>
 </body>
 </html>
