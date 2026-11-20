@@ -20,6 +20,8 @@
   .pill{display:inline-block;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid #2b3648;color:#8b98ab;background:#151b25;white-space:nowrap}
   .pill.green{color:#22c55e;border-color:#1f5133;background:#0f2318}
   .pill.red{color:#e05c53;border-color:#5c2a2a;background:#2a1b1b}
+  .pill.cd{font-size:19px;font-weight:700;letter-spacing:.5px;color:#22c55e;border-color:#1f5133;background:#0f2318;min-width:64px;text-align:center}
+  .pill.cd.idle{font-size:14px;font-weight:600;color:#8b98ab;border-color:#2b3648;background:#151b25}
   .sno{display:inline-block;font-size:10px;color:#5b6a7e;margin-right:3px}
   .card{background:#111827;border:1px solid #232f42;border-radius:12px;padding:14px 16px;margin-bottom:16px}
   .btn.sm{padding:5px 10px;font-size:12px;border-radius:6px}
@@ -59,6 +61,7 @@
   .ord-body b{color:#f0b90b}
   .ord-warn{margin-top:10px;padding:8px 10px;background:#2a1b1b;border:1px solid #5c2a2a;border-radius:6px;color:#e08a8a;font-size:12px}
   #opLog{margin:0 0 10px;font-size:12px;line-height:1.8;text-align:center}
+  .oplog-title{font-size:11px;color:#5b6a7e;letter-spacing:1px;margin-bottom:2px}
   .oplog-item.ok{color:#22c55e}
   .oplog-item.err{color:#e05c53}
   .oplog-empty{color:#5b6a7e}
@@ -79,7 +82,7 @@
     <h1>大宗商品持仓</h1>
     <button class="btn" id="autoBtn" onclick="toggleAuto()">开始</button>
     <span id="net" class="pill">● 网络 —</span>
-    <span id="cd" class="pill">—</span>
+    <span id="cd" class="pill cd idle">—</span>
     <button class="btn" id="viewBtn" onclick="toggleView()">显示全部</button>
     <button class="btn" onclick="loadAll()">刷新数据</button>
     <button class="btn gold" onclick="openSet()">设置 API 密钥</button>
@@ -372,10 +375,11 @@ function addLog(type, text, sym, acct){
   renderLog();
 }
 function renderLog(){
-  const logs=getLogs().slice(0,1);
+  const logs=getLogs().slice(0,5);   // 最近 5 条操作记录
   const el=document.getElementById("opLog");
-  if(!logs.length){ el.innerHTML='<div class="oplog-empty">暂无操作记录</div>'; return; }
-  el.innerHTML=logs.map(l=>{
+  const title='<div class="oplog-title">最近操作记录</div>';
+  if(!logs.length){ el.innerHTML=title+'<div class="oplog-empty">暂无操作记录</div>'; return; }
+  el.innerHTML=title+logs.map(l=>{
     const d=new Date(l.t);
     const hm=("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);
     return '<div class="oplog-item '+l.type+'">'+hm+' '+esc(l.text)+'</div>';
@@ -518,7 +522,9 @@ async function sleepAuto(ms){          // 可被「停止」打断的等待
 }
 function renderCd(){
   const el=document.getElementById("cd");
-  if(el) el.textContent = AUTO ? (cdLeft+"s") : "—";
+  if(!el) return;
+  el.textContent = AUTO ? (cdLeft+"s") : "—";
+  el.className = AUTO ? "pill cd" : "pill cd idle";
 }
 function setNet(ok){
   const el=document.getElementById("net");
