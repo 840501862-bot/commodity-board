@@ -366,8 +366,10 @@ function calcRoi(p,acc){
   if(acc && acc.is5x) roi *= LEV5_SCALE;   // 5x 账户 ROI 等比缩放
   return roi;
 }
-// ROI 是否仍高于 -100%（即尚未亏穿）；取不到 ROI 时不算未亏穿
-function roiOver(p,acc){ const roi=calcRoi(p,acc); return !isNaN(roi) && roi>ROI_BLOCK; }
+// ROI 可加仓：必须已跌破 -100%（≤ -100%）；取不到 ROI 时视为不可加仓
+function roiAddable(p,acc){ const roi=calcRoi(p,acc); return !isNaN(roi) && roi<=ROI_BLOCK; }
+// ROI 是否仍高于 -100%（高于 -100% 不能加仓）；取不到 ROI 时同样按不能加仓处理
+function roiOver(p,acc){ return !roiAddable(p,acc); }
 function btnOpen(accId,sym,dir,label){
   return '<button class="btn sm op-btn" onclick="openOrder('+accId+',\''+sym+'\',\''+dir+'\')">'+label+'</button>';
 }
@@ -376,10 +378,10 @@ function cellData(dir,p,acc,sym,no){
   const roi=calcRoi(p,acc);
   const roiTxt=isNaN(roi)?"—":roi.toFixed(2)+"%";
   const roiCls=isNaN(roi)?"dash":(roi>=0?"plus":"minus");
-  // ROI ≤ -100%：禁止加仓，按钮置灰
-  const blocked=!isNaN(roi) && roi<=ROI_BLOCK;
+  // ROI 高于 -100%（未跌破）：禁止加仓，按钮置灰；跌破 -100% 才可加仓
+  const blocked=!roiAddable(p,acc);
   const opBtn=blocked
-    ? '<button class="btn sm op-btn" disabled title="投资回报率 '+roi.toFixed(2)+'%，已到 -100% 及以下，禁止加仓">加仓</button>'
+    ? '<button class="btn sm op-btn" disabled title="'+(isNaN(roi)?"投资回报率未知":"投资回报率 "+roi.toFixed(2)+"%，未跌破 -100%")+'，禁止加仓">加仓</button>'
     : btnOpen(acc.id,sym,dir,"加仓");
   return '<td class="pos"><span class="'+(dir==="多单"?"long":"short")+'">'+(dir==="多单"?"多":"空")+'</span> '+fmtUsd(notional)+'</td>'+
     '<td class="'+roiCls+'">'+roiTxt+'</td>'+
@@ -470,8 +472,8 @@ function renderLog(){
     return '<div class="oplog-item '+l.type+'">'+hm+' '+esc(l.text)+'</div>';
   }).join("");
 }
-/* ============ 下单（系统最小金额开仓 / 等量加仓 / ROI ≤ -100% 禁止加仓） ============ */
-const ROI_BLOCK = -100;   // 投资回报率 ≤ -100%：禁止加仓
+/* ============ 下单（系统最小金额开仓 / 等量加仓 / ROI 跌破 -100% 才可加仓） ============ */
+const ROI_BLOCK = -100;   // 投资回报率 ≤ -100%（跌破）：可以加仓；高于 -100%：禁止加仓
 /* 交易规则（步长/最小数量/最小开仓额）本地缓存 7 天：exchangeInfo 体积很大，不再每次开仓都整份下载 */
 const RULE_KEY = "cm_rules_v1";
 const RULE_TTL = 7*24*3600*1000;
@@ -570,8 +572,8 @@ async function openOrder(accId, sym, dir){
   let action, qty, usd, minN=0;
   if(p){
     const roi=calcRoi(p,acc);
-    if(!isNaN(roi) && roi<=ROI_BLOCK){
-      alert("该持仓投资回报率 "+roi.toFixed(2)+"%，已低于 -100%，不能加仓");
+    if(!roiAddable(p,acc)){
+      alert("该持仓投资回报率 "+(isNaN(roi)?"未知":roi.toFixed(2)+"%")+"，未跌破 -100%，不能加仓");
       return;
     }
     action="加仓";
@@ -613,12 +615,12 @@ async function placeOrder(){
   try{
     let qty=t.qty;
     if(t.action==="加仓"){
-      // 下单前实时复核：ROI 已跌到 -100% 及以下则拒绝；加仓数量取当前仓位数量
+      // 下单前实时复核：ROI 必须已跌破 -100%（≤ -100%）才允许加仓，高于 -100% 则拒绝；加仓数量取当前仓位数量
       const p=await livePos(t.acc,t.sym,t.dir);
       if(!p) throw new Error("未查到该持仓，已取消加仓");
       const roi=calcRoi(p,t.acc);
-      if(!isNaN(roi) && roi<=ROI_BLOCK){
-        throw new Error("投资回报率 "+roi.toFixed(2)+"%，已到 -100% 及以下，不能加仓");
+      if(!roiAddable(p,t.acc)){
+        throw new Error("投资回报率 "+(isNaN(roi)?"未知":roi.toFixed(2)+"%")+"，未跌破 -100%，不能加仓");
       }
       qty=Math.abs(parseFloat(p.positionAmt));
       if(!(qty>0)) throw new Error("当前仓位数量为 0，已取消加仓");
