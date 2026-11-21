@@ -1,5 +1,5 @@
 /* 页面缓存：让打开/刷新直接命中本地缓存，后台静默更新，不再等 GitHub Pages 首字节 */
-const CACHE = "commodity-board-v4";
+const CACHE = "commodity-board-v5";
 const PAGE = "index.html";
 
 self.addEventListener("install", (e) => {

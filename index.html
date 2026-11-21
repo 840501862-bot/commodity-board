@@ -3,161 +3,286 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b0f16">
 <title>大宗商品持仓</title>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="dns-prefetch" href="https://fapi.binance.com">
 <link rel="dns-prefetch" href="https://fapi1.binance.com">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0f16'/%3E%3Ctext x='16' y='22' font-size='13' text-anchor='middle' fill='%23f0b90b' font-family='Arial' font-weight='bold'%3EXAU%3C/text%3E%3C/svg%3E">
 <style>
+  :root{
+    --bg:#0b0f16; --panel:#111827; --panel2:#151d29; --line:#232f42; --line2:#1a2433;
+    --txt:#d8dee6; --muted:#8b98ab; --dim:#5b6a7e;
+    --gold:#f0b90b; --green:#22c55e; --red:#e05c53; --purple:#a78bfa;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0b0f16;color:#d8dee6;font-family:"Microsoft YaHei",system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
-  .wrap{width:100%;max-width:980px;padding:16px}
-  header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0 18px}
-  h1{font-size:22px;color:#f0b90b;font-weight:700;letter-spacing:1px}
-  .btn{background:#1c2430;color:#e6edf3;border:1px solid #2b3648;border-radius:8px;padding:9px 16px;font-size:14px;cursor:pointer}
-  .btn:hover{border-color:#f0b90b;color:#f0b90b}
-  .btn.gold{background:#f0b90b;color:#0b0f16;border-color:#f0b90b;font-weight:700}
-  .btn.gold:hover{background:#fcd34d}
-  .btn:disabled{opacity:.45;cursor:not-allowed;border-color:#2b3648;color:#5b6a7e;background:#151b25}
-  .btn.gold:disabled{background:#2a2410;color:#6b6237;border-color:#3a3320}
-  .pill{display:inline-block;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid #2b3648;color:#8b98ab;background:#151b25;white-space:nowrap}
-  .pill.green{color:#22c55e;border-color:#1f5133;background:#0f2318}
-  .pill.red{color:#e05c53;border-color:#5c2a2a;background:#2a1b1b}
-  .pill.cd{font-size:19px;font-weight:700;letter-spacing:.5px;color:#22c55e;border-color:#1f5133;background:#0f2318;min-width:64px;text-align:center}
-  .pill.cd.idle{font-size:14px;font-weight:600;color:#8b98ab;border-color:#2b3648;background:#151b25}
-  .sno{display:inline-block;font-size:10px;color:#5b6a7e;margin-right:3px}
-  .card{background:#111827;border:1px solid #232f42;border-radius:12px;padding:14px 16px;margin-bottom:16px}
-  .btn.sm{padding:5px 10px;font-size:12px;border-radius:6px}
-  table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{padding:5px 6px;text-align:center;border-bottom:1px solid #1a2433}
-  th{color:#8b98ab;font-weight:600;font-size:12px}
-  td.sym{text-align:left;font-weight:600;color:#e6edf3}
-  td.long{color:#22c55e} td.short{color:#e05c53}
-  td.plus{color:#22c55e} td.minus{color:#e05c53} td.dash{color:#5b6a7e}
-  #status{padding:10px 16px;font-size:13px;color:#8b98ab;text-align:center;min-height:38px}
-  .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9}
-  .modal-mask.open{display:flex}
-  .modal{background:#111827;border:1px solid #2b3648;border-radius:12px;padding:20px;width:min(94vw,820px)}
-  .modal h3{font-size:16px;margin-bottom:14px;color:#f0b90b}
-  .modal input{width:100%;background:#0b0f16;border:1px solid #2b3648;border-radius:8px;color:#e6edf3;padding:9px 10px;font-size:14px;outline:none}
-  .modal input:focus{border-color:#f0b90b}
-  .modal .row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
-  .empty{color:#5b6a7e;text-align:center;padding:40px 0;font-size:14px}
-  .tip{font-size:12px;color:#8b98ab;margin-bottom:14px;line-height:1.6}
-  .arow{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
-  .arow input{flex:1;min-width:140px}
-  .arow .nm{flex:0 0 110px;min-width:110px}
-  .arow .del{border:none;background:none;color:#8b98ab;font-size:18px;cursor:pointer;padding:4px 8px;line-height:1}
-  .arow .del:hover{color:#e05c53}
-  .arow .lbl5x{display:flex;align-items:center;gap:4px;color:#8b98ab;font-size:12px;white-space:nowrap}
-  .add-row{margin:2px 0 12px}
-  .modal-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;flex-wrap:wrap}
-  .hint{font-size:12px;color:#8b98ab}
-  .op{text-align:center;white-space:nowrap}
-  .op-btn{min-width:44px;padding:4px 8px;font-size:11px;border-radius:6px}
-  .pos{white-space:nowrap}
-  .tbl td.sym{position:sticky;left:0;z-index:1;background:#111827}
-  .tbl tbody tr.alt td,.tbl tbody tr.alt td.sym{background:#26354f}
-  .tbl thead th.sym{position:sticky;left:0;z-index:2;background:#111827;border-right:1px solid #2b3648}
-  .ord-body{font-size:13px;line-height:1.9;color:#d8dee6}
-  .ord-body b{color:#f0b90b}
-  .ord-warn{margin-top:10px;padding:8px 10px;background:#2a1b1b;border:1px solid #5c2a2a;border-radius:6px;color:#e08a8a;font-size:12px}
-  #opLog{margin:0 0 10px;font-size:12px;line-height:1.8;text-align:center}
-  .oplog-title{font-size:11px;color:#5b6a7e;letter-spacing:1px;margin-bottom:2px}
-  .oplog-item.ok{color:#22c55e}
-  .oplog-item.err{color:#e05c53}
-  .oplog-empty{color:#5b6a7e}
-  .tbl table{white-space:nowrap}
-  .tbl th[colspan]{text-align:center;border-bottom:2px solid #2b3648}
-  .tbl th:not([colspan]){color:#8b98ab}
-  .tbl td{border-right:1px solid #1a2433}
-  .tbl td:first-child{min-width:96px}
-  .ok{color:#22c55e;font-weight:600}
-  .bad{color:#e05c53;font-weight:600}
-  .tbl tbody tr.pair-sep td{padding:10px 0;background:#0d1117;border-top:1px solid #2b3648;border-bottom:1px solid #2b3648}
+  body{background:var(--bg);color:var(--txt);font-family:"Microsoft YaHei UI","PingFang SC",system-ui,sans-serif;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  .mono{font-variant-numeric:tabular-nums;font-family:Consolas,"Microsoft YaHei UI",monospace}
+
+  header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#101724,#0b1018);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header h1{font-size:17px;color:var(--gold);font-weight:700;letter-spacing:.5px;margin-right:auto;white-space:nowrap}
+  header h1 .sub{font-size:12px;color:var(--dim);font-weight:400;letter-spacing:0}
+  .btn{background:#1c2430;color:#e6edf3;border:1px solid #2b3648;border-radius:8px;padding:7px 13px;font-size:13px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;white-space:nowrap}
+  .btn:hover{border-color:var(--gold);color:var(--gold)}
+  .btn.primary{background:linear-gradient(180deg,#f0b90b,#d9a406);border-color:var(--gold);color:#0b0f16;font-weight:700}
+  .btn.primary:hover{background:linear-gradient(180deg,#fcd34d,#e5b60a);color:#0b0f16}
+  .btn.danger{background:#c0392b;border-color:#e05c53;color:#fff;font-weight:700}
+  .btn.danger:hover{background:#dc4a3d;color:#fff}
+  .btn:disabled{opacity:.45;cursor:not-allowed;border-color:#2b3648;color:#6c7b8f;background:#151b25}
+  .btn.primary:disabled{background:#2a2410;color:#6b6237;border-color:#3a3320}
+  .btn.sm{padding:4px 9px;font-size:12px;border-radius:6px}
+
+  .autobar{display:flex;align-items:center;gap:12px;padding:7px 16px;background:#0c121b;border-bottom:1px solid var(--line);flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .netpill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;border:1px solid #27405f;background:#101f37;color:#9fb4c9;white-space:nowrap}
+  .netpill .dot{width:7px;height:7px;border-radius:50%;background:#7d93ab}
+  .netpill.ok{border-color:rgba(34,197,94,.45);color:var(--green);background:#0f2318}
+  .netpill.ok .dot{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.8)}
+  .netpill.bad{border-color:rgba(224,92,83,.5);color:#ff7b72;background:#2a1b1b}
+  .netpill.bad .dot{background:var(--red);box-shadow:0 0 6px rgba(224,92,83,.85)}
+  .cd{color:var(--muted);white-space:nowrap}
+  .cd b{color:var(--green);font-size:17px;font-variant-numeric:tabular-nums;margin:0 2px}
+  .autostat{color:#9cc3ff}
+  .slot{color:#f0b90b}
+  .autobar .btn.gold{background:#f0b90b;color:#0b0f16;border-color:#f0b90b;font-weight:700;padding:5px 14px}
+  .autobar .btn.gold:hover{background:#fcd34d;color:#0b0f16}
+
+  #opLog{max-height:96px;overflow:auto;padding:5px 16px;background:#0a0f17;border-bottom:1px solid #16202e;font-size:12px;line-height:1.7;color:var(--muted)}
+  #opLog .t{color:var(--dim);margin-right:8px}
+  #opLog .ok{color:var(--green)}
+  #opLog .err{color:var(--red)}
+  #opLog .empty{color:#4c5a6d}
+
+  main{flex:1;min-height:0;display:flex;flex-direction:column}
+  #tblWrap{flex:1;min-height:0;overflow:auto;position:relative;background:var(--panel)}
+  #tblWrap .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:14px;padding:24px;text-align:center;line-height:2}
+  table{width:100%;min-width:780px;border-collapse:separate;border-spacing:0;white-space:nowrap;table-layout:fixed}
+  thead th{position:sticky;z-index:4;background:#16233a;color:#8fa8c4;font-weight:600;font-size:12px;padding:6px 7px;border-bottom:1px solid #2c3f5c}
+  thead tr:first-child th{top:0;height:31px}
+  thead tr:last-child th{top:31px}
+  thead th.sym{left:0;z-index:6;text-align:left;padding-left:12px;color:#c9ddf5;border-right:1px solid #2c3f5c;width:150px}
+  thead th.acct-head{text-align:center;color:#c9ddf5;border-left:1px solid #0b0f16}
+  thead th.sub{color:#7f93ad;font-weight:400}
+  .tag{display:inline-block;font-size:11px;font-weight:400;border-radius:3px;padding:0 5px;margin-left:6px}
+  .tag.ok{background:rgba(34,197,94,.15);color:var(--green)}
+  .tag.err{background:rgba(224,92,83,.16);color:#ff7b72}
+  .tag.na{background:rgba(125,147,171,.15);color:#7d93ab}
+  .mini5{display:inline-block;font-size:10px;color:var(--purple);background:rgba(124,58,237,.18);border-radius:3px;padding:0 4px;margin-left:4px;vertical-align:middle}
+  tbody td{padding:6px 7px;border-bottom:1px solid var(--line2);text-align:center}
+  tbody tr:hover td{background:#17233a}
+  tbody tr.alt td{background:var(--panel2)}
+  tbody tr.alt:hover td{background:#1a2740}
+  tbody tr.gap td{height:8px;padding:0;border:none;background:transparent}
+  td.sym{position:sticky;left:0;z-index:3;text-align:left;font-weight:600;color:#eaf2ff;padding-left:12px;background:#131c2a;border-right:1px solid var(--line);overflow:hidden;text-overflow:ellipsis}
+  tbody tr.alt td.sym{background:#192333}
+  tbody tr:hover td.sym{background:#1b2a45}
+  td.pos{text-align:left;padding-left:10px}
+  td.pos .dir{display:inline-block;margin-right:5px;font-weight:600}
+  td.pos.long .dir{color:var(--green)}
+  td.pos.short .dir{color:var(--red)}
+  td.pos.dash .dir{color:#4d5b6e}
+  td.pos .val,td.roi{font-variant-numeric:tabular-nums}
+  td.roi.plus{color:var(--green)}
+  td.roi.minus{color:var(--red)}
+  td.roi.dash,td.pos.dash .val{color:var(--dim)}
+  td.op{white-space:nowrap;padding-right:9px}
+  .sno{display:inline-block;font-size:10px;color:#5f7190;margin-right:4px;font-variant-numeric:tabular-nums}
+  .op-btn{min-width:46px}
+  .errTag{font-size:11px;color:var(--red);font-weight:600}
+  footer{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;padding:6px 16px;background:#0a1322;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+  footer .summary{color:#c9ddf5}
+  #status{color:#4dc3ff}
+
+  .mask{position:fixed;inset:0;background:rgba(3,6,12,.72);display:none;align-items:center;justify-content:center;z-index:50}
+  #dlgMask{z-index:70}
+  .mask.show{display:flex}
+  .modal{background:#0f1a30;border:1px solid #27405f;border-radius:10px;width:min(680px,94vw);max-height:88vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+  .modal h3{padding:13px 18px;border-bottom:1px solid #20334d;font-size:15px;color:#eaf2ff}
+  .modal .body{padding:14px 18px;font-size:13px;line-height:1.8;color:var(--txt)}
+  #dlgBody{white-space:pre-wrap}
+  .modal .foot{padding:11px 18px;border-top:1px solid #20334d;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+  .tip{white-space:normal;font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px}
+  .hint{font-size:12px;color:var(--dim)}
+  .arow{display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
+  .arow input[type=text],.arow input[type=password]{flex:1;min-width:120px;background:#0b0f16;border:1px solid #2b3648;border-radius:6px;color:#e6edf3;padding:7px 9px;font-size:13px;outline:none}
+  .arow input:focus{border-color:var(--gold)}
+  .arow .nm{flex:0 0 108px;min-width:96px}
+  .arow .del{border:none;background:none;color:var(--muted);font-size:17px;cursor:pointer;padding:2px 7px;line-height:1;border-radius:4px}
+  .arow .del:hover{color:var(--red)}
+  .arow .lbl5x{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:12px;white-space:nowrap}
+  .tools{display:flex;align-items:center;gap:12px;margin-top:4px;flex-wrap:wrap}
+
+  #toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:80;align-items:center;pointer-events:none}
+  .toast{background:#111c2e;border:1px solid #2b4a6e;color:#dbe7f5;border-radius:8px;padding:9px 16px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.5);animation:tin .18s ease-out;max-width:90vw}
+  .toast.ok{border-color:rgba(34,197,94,.5);color:#b8f5cc}
+  .toast.err{border-color:rgba(224,92,83,.55);color:#ffc2bd}
+  .toast.warn{border-color:#a97a1c;color:#f5d68a}
+  .toast.out{opacity:0;transition:opacity .25s}
+  @keyframes tin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  @media (max-width:720px){
+    header h1{font-size:15px;width:100%;margin-right:0}
+    header h1 .sub{display:none}
+    header{gap:8px;padding:9px 12px}
+    header .btn{padding:6px 11px;font-size:12px}
+    .autobar{padding:6px 12px;gap:9px}
+    footer{padding:5px 12px;gap:10px}
+    #opLog{padding:4px 12px}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>大宗商品持仓</h1>
-    <button class="btn" id="autoBtn" onclick="toggleAuto()">开始</button>
-    <span id="net" class="pill">● 网络 —</span>
-    <span id="cd" class="pill cd idle">—</span>
-    <button class="btn" id="viewBtn" onclick="toggleView()">显示全部</button>
-    <button class="btn" onclick="loadAll()">刷新数据</button>
-    <button class="btn gold" onclick="openSet()">设置 API 密钥</button>
-  </header>
-  <main><div id="opLog"></div><div id="tblWrap" style="overflow-x:auto"></div><div id="status"></div></main>
+
+<header>
+  <h1>大宗商品持仓 <span class="sub">多单 / 空单 · 多账户 · 纯浏览器直连</span></h1>
+  <button class="btn" id="viewBtn">显示全部</button>
+  <button class="btn primary" id="btnRefresh">刷新</button>
+  <button class="btn" id="btnSet">设置 API 密钥</button>
+</header>
+
+<div class="autobar">
+  <button class="btn primary" id="autoBtn">开始</button>
+  <span class="netpill" id="netPill"><i class="dot"></i><span id="netText">网络检测中…</span></span>
+  <span class="cd">下一轮 <b id="cdNum">--</b> 秒</span>
+  <span class="autostat" id="autoStat">未开始：点「开始」后每 9 秒刷新一次，按序号补空位开仓，只开仓不加仓</span>
+  <span class="slot" id="slotInfo"></span>
+</div>
+<div id="opLog"></div>
+
+<main>
+  <div id="tblWrap"><div class="empty">尚未添加账户。点击右上角「设置 API 密钥」填入 API Key 后查看持仓。</div></div>
+</main>
+
+<footer>
+  <span class="summary" id="summary"></span>
+  <span id="status">就绪</span>
+</footer>
+
+<!-- 通用弹窗 -->
+<div class="mask" id="dlgMask">
+  <div class="modal">
+    <h3 id="dlgTitle">提示</h3>
+    <div class="body" id="dlgBody"></div>
+    <div class="foot">
+      <button class="btn" id="dlgCancel">取消</button>
+      <button class="btn primary" id="dlgOk">确认</button>
+    </div>
+  </div>
 </div>
 
-<div class="modal-mask" id="ordMask">
+<!-- 设置弹窗 -->
+<div class="mask" id="setMask">
   <div class="modal">
-    <h3>确认下单</h3>
-    <div id="ordBody" class="ord-body"></div>
-    <div class="row">
-      <button class="btn" onclick="closeOrder()">取消</button>
-      <button class="btn gold" onclick="placeOrder()">确认下单</button>
+    <h3>设置 · 账户密钥</h3>
+    <div class="body">
+      <p class="tip">每个账户一行：账户名 + API Key + Secret。只需只读持仓权限，密钥仅保存在本浏览器 localStorage，页面直连币安，无服务器中转。</p>
+      <div id="setRows"></div>
+      <div class="tools">
+        <button class="btn sm" id="btnAddRow">＋ 添加账户</button>
+        <span class="hint" id="setHint"></span>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn" id="btnTest">测试连接</button>
+      <button class="btn primary" id="btnSave">保存设置</button>
+      <button class="btn" id="btnCloseSet">关闭</button>
     </div>
   </div>
 </div>
-<div class="modal-mask" id="mask">
-  <div class="modal">
-    <h3>设置 API 密钥</h3>
-    <p class="tip">每个账户一行：API Key + Secret。只读持仓权限即可，密钥只存本地浏览器 localStorage。</p>
-    <div id="accRows"></div>
-    <div class="add-row"><button class="btn sm" onclick="addRow()">+ 添加账户</button></div>
-    <div class="modal-foot">
-      <span class="hint">保存后点「刷新数据」</span>
-      <span style="display:flex;gap:10px">
-        <button class="btn" onclick="closeSet()">取消</button>
-        <button class="btn gold" onclick="saveSet()">保存</button>
-      </span>
-    </div>
-  </div>
-</div>
+
+<div id="toasts"></div>
 
 <script>
 "use strict";
-/* ============ 交易对（来自 大宗商品.txt） ============ */
+
+/* ===================== 常量 ===================== */
 const PAIRS = [
   ["CLUSDT","原油"],["BZUSDT","布伦特"],["XAGUSDT","白银"],["NATGASUSDT","天然气"],
   ["COPPERUSDT","铜"],["XPTUSDT","铂金"],["XPDUSDT","钯金"],["USDBRLUSDT","雷亚尔"],
   ["SOXLUSDT","半导体3倍"],["ANTUSDT","Anthropic"],["SPCXUSDT","SpaceX"],
   ["SNDKUSDT","闪迪"],["NVDAUSDT","英伟达"],["MUUSDT","美光"]
 ];
-/* 主域名卡住时自动切换备用域名 */
+const PAIR_NAMES = {};
+PAIRS.forEach(([s,n]) => { PAIR_NAMES[s] = n; });
+
 const API_LIST = ["https://fapi.binance.com","https://fapi1.binance.com"];
 let API = API_LIST[0];
-const GET_TIMEOUT = 4500;      // 单个只读请求超时
-const POST_TIMEOUT = 12000;    // 下单请求超时（下单不跨域名重试，避免重复成交）
-const CACHE_KEY = "cm_cache_v2";
-const KEY = "cm_accounts_v1";
-/* 5倍杠杆账户 ROI 等比缩放：实际 7.5% = 正常 100% */
-const LEV5_SCALE = 100/7.5;
+const GET_TIMEOUT = 6000;
+const POST_TIMEOUT = 15000;
+const ACCOUNT_KEY = "cm_accounts_v1";
+const CACHE_KEY = "cm_cache_v3";
+const LOG_KEY = "op_log_v1";
+const RULE_KEY = "cm_rules_v1";
+const RULE_TTL = 7*24*3600*1000;
+const LEV5_SCALE = 100/7.5;     // 5 倍杠杆账户：实际 7.5% = 正常 100%
+const ROI_BLOCK = -100;         // ROI ≤ -100% 才允许加仓
 const DIRS = ["多单","空单"];
+const AUTO_INTERVAL = 9;        // 自动刷新间隔（秒）
+const MAX_TRY_PER_CYCLE = 5;    // 一轮最多尝试 5 个空位
+const MAX_ACCOUNTS = 20;
 
-/* ============ 显示模式：默认按整体规则筛选，可切换显示全部 ============ */
-let VIEW="filter";
-function updateViewBtn(){
-  const b=document.getElementById("viewBtn");
-  if(!b) return;
-  b.textContent = VIEW==="all" ? "只看筛选" : "显示全部";
-  b.title = VIEW==="all" ? "回到按整体规则筛选后的视图" : "显示全部交易对（含空仓、已亏穿的）";
+/* ===================== 状态 ===================== */
+const state = {
+  accs: [],
+  results: [],
+  byId: {},
+  view: "filter",
+  fetching: false,
+  dur: 0,
+  cacheAt: 0
+};
+const auto = {
+  running:false, busy:false, nextAt:0, latency:0,
+  failed:new Set(), timer:null, rulesWarned:false
+};
+const dualCache = {};           // 账户 id → 是否双向持仓
+let dlgOnOk = null;
+let flight = null;              // 单飞：手动/自动刷新共用同一次请求
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ===================== 工具 ===================== */
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function fmtMoney(v){ const n=parseFloat(v); return isFinite(n)?n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}):"—"; }
+function fmtUsd(v){ const n=parseFloat(v); return isFinite(n)?("$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})):"—"; }
+function hhmmss(d){ return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2); }
+function setText(el,t){ if(el && el.__t!==t){ el.textContent=t; el.__t=t; } }
+function setCls(el,c){ if(el && el.__c!==c){ el.className=c; el.__c=c; } }
+function setMsg(el,t){ if(el && el.__m!==t){ el.textContent=t; el.__m=t; } }
+function trimNum(v){ return String(Number(v)).replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, ""); }
+function toast(msg,type){
+  const box=$("toasts");
+  const d=document.createElement("div");
+  d.className="toast "+(type||"");
+  d.textContent=msg;
+  box.appendChild(d);
+  setTimeout(()=>{ d.classList.add("out"); setTimeout(()=>d.remove(),260); }, type==="err"?6000:3600);
 }
-function toggleView(){
-  VIEW = VIEW==="all" ? "filter" : "all";
-  updateViewBtn();
-  if(lastResults.length) renderTable(loadAcc(), lastResults);
+function setStatus(t){ setMsg($("status"), t); }
+
+/* ===================== 账户存取 ===================== */
+let accCache = null;
+function loadAcc(){
+  if(accCache) return accCache;
+  try{ accCache = JSON.parse(localStorage.getItem(ACCOUNT_KEY) || "[]") || []; }
+  catch(e){ accCache = []; }
+  return accCache;
+}
+function saveAcc(list){
+  accCache = list;
+  state.accs = list;
+  try{ localStorage.setItem(ACCOUNT_KEY, JSON.stringify(list)); }catch(e){}
+}
+function accRes(id){ return state.byId[id]; }
+function setResults(res){
+  state.results = res;
+  const byId = {};
+  res.forEach(r => { byId[r.acc.id] = r; });
+  state.byId = byId;
 }
 
-/* ============ 账户存取（仅存浏览器本地） ============ */
-function loadAcc(){ try{ return JSON.parse(localStorage.getItem(KEY)||"[]"); }catch(e){ return []; } }
-function saveAcc(a){ localStorage.setItem(KEY, JSON.stringify(a)); }
-function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
-function fmtUsd(v){ return (v==null||isNaN(v)) ? "—" : "$"+v.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2}); }
-
-/* ============ SHA-256 / HMAC（纯 JS 兜底） ============ */
+/* ===================== SHA-256 / HMAC ===================== */
 function _bytesToHex(b){ return Array.from(b).map(x=>x.toString(16).padStart(2,"0")).join(""); }
 function _sha256(data){
   const K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
@@ -201,7 +326,7 @@ function _hmac(key,data){
 }
 async function signQuery(query,secret){
   const msg=new TextEncoder().encode(query), key=new TextEncoder().encode(secret);
-  if(window.crypto&&crypto.subtle){
+  if(window.crypto && crypto.subtle){
     try{
       const ko=await crypto.subtle.importKey("raw",key,{name:"HMAC",hash:"SHA-256"},false,["sign"]);
       const sig=await crypto.subtle.sign("HMAC",ko,msg);
@@ -211,8 +336,18 @@ async function signQuery(query,secret){
   return _bytesToHex(_hmac(key,msg));
 }
 
-/* ============ 网络层：超时控制 + 备用域名 ============ */
-async function httpJson(url, opts, timeoutMs){
+/* ===================== 网络层 ===================== */
+let offMs=0, timeOk=false, lastSync=0, syncToken=null;
+let netAt=0, netOk=null, latency=0;
+
+function setNet(ok,ms){
+  const pill=$("netPill"), tx=$("netText");
+  if(!pill) return;
+  pill.classList.toggle("ok", ok===true);
+  pill.classList.toggle("bad", ok===false);
+  tx.textContent = ok===null ? "网络检测中…" : ok ? ("网络正常"+(ms>0?(" "+ms+"ms"):"")) : "网络异常";
+}
+async function httpJson(url,opts,timeoutMs){
   const ctrl=new AbortController();
   const timer=setTimeout(()=>ctrl.abort(), timeoutMs);
   try{
@@ -224,26 +359,21 @@ async function httpJson(url, opts, timeoutMs){
   }catch(e){
     const m=String((e&&e.name)||"")+" "+String((e&&e.message)||"");
     if(/abort/i.test(m)) throw new Error("请求超时（网络不稳定）");
-    if(/failed to fetch|networkerror|fetch failed/i.test(m)) throw new Error("网络连接失败");
+    if(/failed to fetch|networkerror|fetch failed|load failed/i.test(m)) throw new Error("网络连接失败");
     throw e;
   }finally{ clearTimeout(timer); }
 }
 function altHost(){ return API===API_LIST[0] ? API_LIST[1] : API_LIST[0]; }
-// 只读请求：主域名超时/失败立即换备用域名，整体上限约 2 倍超时，不会无限等待
-async function apiGet(path, timeoutMs){
+async function apiGet(path,timeoutMs){
   const t=timeoutMs||GET_TIMEOUT;
-  try{
-    return await httpJson(API+path, {method:"GET"}, t);
-  }catch(e){
+  try{ return await httpJson(API+path, {method:"GET"}, t); }
+  catch(e){
     const h=altHost();
     const j=await httpJson(h+path, {method:"GET"}, t);
     API=h;
     return j;
   }
 }
-
-/* ============ 时间同步（不阻塞页面：先用本地时间+偏差，失败再校正） ============ */
-let offMs=0, syncOk=false, lastSync=0, syncToken=null;
 async function syncOnce(){
   if(syncToken) return syncToken;
   syncToken=(async()=>{
@@ -251,33 +381,45 @@ async function syncOnce(){
       const j=await apiGet("/fapi/v1/time?t="+Date.now(), 4000);
       const ms=Number(j.serverTime);
       if(!(ms>0)) throw new Error("bad time");
-      offMs=ms-Date.now(); syncOk=true; lastSync=Date.now(); setNet(true);
+      offMs=ms-Date.now(); timeOk=true; lastSync=Date.now();
       return true;
-    }catch(e){ setNet(false); return false; }
+    }catch(e){ timeOk=false; return false; }
     finally{ syncToken=null; }
   })();
   return syncToken;
 }
 async function syncTime(force){
-  if(!force && syncOk && Date.now()-lastSync<60000) return true;
+  if(!force && timeOk && Date.now()-lastSync<60000) return true;
   return await syncOnce();
 }
 function nowMs(){ return Date.now()+offMs; }
-
-/* ============ 签名请求（统一封装：GET/POST） ============ */
-function posNotional(p){
-  return Math.abs(parseFloat(p.notional)) || Math.abs(parseFloat(p.positionAmt))*parseFloat(p.markPrice||p.entryPrice);
+async function pingNet(force){
+  const now=Date.now();
+  if(!force && netOk!==null && now-netAt<3000) return netOk;
+  netAt=now;
+  const t0=performance.now();
+  try{
+    await apiGet("/fapi/v1/ping", 4000);
+    latency=Math.round(performance.now()-t0);
+    netOk=true; setNet(true,latency);
+    return true;
+  }catch(e){
+    latency=0; netOk=false; setNet(false);
+    return false;
+  }
 }
-async function signedFetch(acc, path, method, params){
-  const m=method||"GET";
+
+/* ===================== 签名请求 ===================== */
+async function signedFetch(acc,path,method,params){
+  const m=(method||"GET").toUpperCase();
   const once=async()=>{
     const all=Object.assign({timestamp:nowMs(), recvWindow:10000}, params||{});
     const qs=Object.keys(all).sort().map(k=>k+"="+encodeURIComponent(all[k])).join("&");
     const sig=await signQuery(qs, acc.secret);
+    const url=path+"?"+qs+"&signature="+sig;
     const opts={method:m, headers:{"X-MBX-APIKEY":acc.key}};
     if(m==="POST") opts.headers["Content-Type"]="application/x-www-form-urlencoded";
-    const url=path+"?"+qs+"&signature="+sig;
-    if(m==="POST") return await httpJson(API+url, opts, POST_TIMEOUT);   // 下单不切域名重试，避免重复成交
+    if(m==="POST") return await httpJson(API+url, opts, POST_TIMEOUT);   // 下单不跨域名重试，避免重复成交
     try{ return await httpJson(API+url, opts, GET_TIMEOUT); }
     catch(e){
       const h=altHost();
@@ -287,552 +429,950 @@ async function signedFetch(acc, path, method, params){
     }
   };
   let j=await once();
-  if(j && (j.code===-1021 || j.code===-1022)){   // 时间戳偏差：校正一次后重发
+  if(j && (j.code===-1021 || j.code===-1022)){    // 时间戳偏差：校正一次后重发
     await syncTime(true);
     j=await once();
   }
+  if(j && typeof j==="object" && !Array.isArray(j) && j.code!==undefined && String(j.code)!=="200"){
+    throw new Error("code "+j.code+"："+(j.msg||"接口返回错误"));
+  }
   return j;
 }
-function setStatus(t){ document.getElementById("status").textContent=t; }
-function renderEmpty(){
-  document.getElementById("tblWrap").innerHTML='<div class="empty">尚未添加账户。点击右上角「设置 API 密钥」填入 API Key 后查看持仓。</div>';
-  setStatus("");
-}
-/* ============ 持仓缓存：刷新优先用上次数据秒开，再后台刷新 ============ */
-function hhmmss(d){
-  return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);
-}
-function saveCache(results){
+
+/* ===================== 交易规则（exchangeInfo 缓存） ===================== */
+let RULES=null, rulesWarm=false, rulesPromise=null, rulesLastFetch=0, RULES_T=0;
+function loadRulesCache(){
+  if(RULES) return;
   try{
-    const r=results.map(x=>({id:x.acc.id, err:x.err||null, map:x.map||{}}));
-    localStorage.setItem(CACHE_KEY, JSON.stringify({t:Date.now(), r:r}));
+    const d=JSON.parse(localStorage.getItem(RULE_KEY)||"null");
+    // 网络异常时允许用 4 周内的旧规则兜底，成功拉到新规则后会覆盖
+    if(d && d.m && Date.now()-d.t<RULE_TTL*4){ RULES=d.m; RULES_T=d.t; }
   }catch(e){}
+  if(!RULES) RULES={};
 }
-function renderCache(accs){
-  let d=null;
-  try{ d=JSON.parse(localStorage.getItem(CACHE_KEY)||"null"); }catch(e){}
-  if(!d || !d.r || !d.r.length) return false;
-  const results=d.r.map(x=>{
-    const acc=accs.find(a=>a.id===x.id);
-    return acc ? {acc:acc, map:x.map||{}, err:x.err||null} : null;
-  }).filter(Boolean);
-  if(!results.length) return false;
-  renderTable(accs,results);
-  cacheTime=new Date(d.t);
-  setStatus("已显示 "+hhmmss(cacheTime)+" 的缓存数据，正在刷新…");
-  return true;
-}
-let cacheTime=null, loading=false;
-async function loadAll(){
-  const accs=loadAcc();
-  if(!accs.length){ renderEmpty(); return; }
-  if(loading) return;                      // 自动刷新与手动刷新不叠加
-  loading=true;
-  const t0=Date.now();
-  setStatus("正在刷新持仓…"+(cacheTime?("（先显示 "+hhmmss(cacheTime)+" 的缓存）"):""));
-  const results=await Promise.all(accs.map(async acc=>{
-    try{
-      const rows=await signedFetch(acc,"/fapi/v2/positionRisk");
-      if(rows.code===401 || rows.code===-2014){
-        throw new Error("API Key 无效或权限不足（-2014）");
-      }
-      if(!Array.isArray(rows)) throw new Error("接口异常："+(rows.msg||JSON.stringify(rows).slice(0,80)));
-      // 双向持仓模式同一交易对可能返回 LONG + SHORT 两条，按方向分开存
-      const map={};
-      rows.forEach(p=>{
-        if(!p.positionAmt) return;
-        const amt=parseFloat(p.positionAmt);
-        if(amt===0) return;
-        const side=amt>0?"long":"short";
-        map[p.symbol]=map[p.symbol]||{};
-        map[p.symbol][side]=p;
-      });
-      return {acc,map,err:null};
-    }catch(e){ return {acc,map:{},err:e.message}; }
-  }));
-  try{
-    renderTable(accs,results);
-    saveCache(results);
-    const el=document.getElementById("status");
-    el.textContent += " · 耗时 "+((Date.now()-t0)/1000).toFixed(1)+"s";
-    cacheTime=null;
-  }finally{ loading=false; }
-  warmRules();
-}
-function calcRoi(p,acc){
-  const qty=Math.abs(parseFloat(p.positionAmt));
-  const entry=parseFloat(p.entryPrice), upnl=parseFloat(p.unRealizedProfit), lev=parseFloat(p.leverage)||1;
-  let roi=(upnl/(qty*entry/lev))*100;
-  if(acc && acc.is5x) roi *= LEV5_SCALE;   // 5x 账户 ROI 等比缩放
-  return roi;
-}
-// ROI 可加仓：必须已跌破 -100%（≤ -100%）；取不到 ROI 时视为不可加仓
-function roiAddable(p,acc){ const roi=calcRoi(p,acc); return !isNaN(roi) && roi<=ROI_BLOCK; }
-// ROI 是否仍高于 -100%（高于 -100% 不能加仓）；取不到 ROI 时同样按不能加仓处理
-function roiOver(p,acc){ return !roiAddable(p,acc); }
-function btnOpen(accId,sym,dir,label){
-  return '<button class="btn sm op-btn" onclick="openOrder('+accId+',\''+sym+'\',\''+dir+'\')">'+label+'</button>';
-}
-function cellData(dir,p,acc,sym,no){
-  const notional=posNotional(p);
-  const roi=calcRoi(p,acc);
-  const roiTxt=isNaN(roi)?"—":roi.toFixed(2)+"%";
-  const roiCls=isNaN(roi)?"dash":(roi>=0?"plus":"minus");
-  // ROI 高于 -100%（未跌破）：禁止加仓，按钮置灰；跌破 -100% 才可加仓
-  const blocked=!roiAddable(p,acc);
-  const opBtn=blocked
-    ? '<button class="btn sm op-btn" disabled title="'+(isNaN(roi)?"投资回报率未知":"投资回报率 "+roi.toFixed(2)+"%，未跌破 -100%")+'，禁止加仓">加仓</button>'
-    : btnOpen(acc.id,sym,dir,"加仓");
-  return '<td class="pos"><span class="'+(dir==="多单"?"long":"short")+'">'+(dir==="多单"?"多":"空")+'</span> '+fmtUsd(notional)+'</td>'+
-    '<td class="'+roiCls+'">'+roiTxt+'</td>'+
-    '<td class="op"><span class="sno">#'+no+'</span>'+opBtn+'</td>';
-}
-function cellEmpty(accId,sym,dir,no){
-  const opened=OPENED[slotKey(accId,sym,dir)];
-  return '<td class="pos dash">—</td><td class="dash">—</td>'+
-    (opened
-      ? '<td class="op dash"><span class="sno">#'+no+'</span>已开仓</td>'
-      : '<td class="op"><span class="sno">#'+no+'</span>'+btnOpen(accId,sym,dir,"开仓")+'</td>');
-}
-let lastResults=[];
-// 该交易对所有账户的多空仓位（含本轮已开仓）汇总：数量、未亏穿笔数、已开仓笔数
-function pairStats(sym,accs){
-  const st={posCnt:0,overCnt:0,openedCnt:0,sumLong:0,sumShort:0};
-  accs.forEach(a=>{
-    const pL=findPosOf(a.id,sym,"多单"), pS=findPosOf(a.id,sym,"空单");
-    if(pL){ st.posCnt++; st.sumLong+=Math.abs(parseFloat(pL.positionAmt)); if(roiOver(pL,a)) st.overCnt++; }
-    if(pS){ st.posCnt++; st.sumShort+=Math.abs(parseFloat(pS.positionAmt)); if(roiOver(pS,a)) st.overCnt++; }
-    DIRS.forEach(d=>{ if(OPENED[slotKey(a.id,sym,d)]) st.openedCnt++; });
-  });
-  return st;
-}
-function renderTable(accs,results){
-  lastResults=results;
-  const byAcc={};
-  results.forEach(r=>byAcc[r.acc.id]=r);
-  const head='<tr><th rowspan="2" class="sym">交易对</th>'+
-    accs.map(a=>{
-      const r=byAcc[a.id];
-      const st=(r&&r.err)?'<span class="bad" title="'+esc(r.err)+'">✗ 失败</span>':'<span class="ok">✓ OK</span>';
-      const fiveTag=a.is5x?' <span style="color:#a78bfa;font-size:11px">5x</span>':'';
-      return '<th colspan="3">'+esc(a.name)+fiveTag+' '+st+'</th>';
-    }).join('')+
-    '</tr><tr>'+accs.map(()=>'<th>持仓(USDT)</th><th>ROI</th><th>操作</th>').join('')+'</tr>';
-  let hidden=0;
-  const rows=[];
-  const cellOf=(a,sym,dir,no)=>{
-    const p=findPosOf(a.id,sym,dir);
-    return p?cellData(dir,p,a,sym,no):cellEmpty(a.id,sym,dir,no);
-  };
-  PAIRS.forEach(([sym])=>{
-    const st=pairStats(sym,accs);
-    // 整体过滤：该交易对所有账户的多空仓位视为一体
-    // 显示条件：一个仓位都没有；或已有仓位全部 ROI ≤ -100%（整体都亏穿）
-    // 只要有一个仓位仍高于 -100%，整对不显示（点「显示全部」可临时不过滤）
-    if(VIEW!=="all" && (st.posCnt+st.openedCnt)>0 && (st.overCnt+st.openedCnt)>0){ hidden++; return; }
-    // 数量大的方向排前面
-    const d1=st.sumLong>=st.sumShort?"多单":"空单";
-    const d2=d1==="多单"?"空单":"多单";
-    const alt=rows.length%2? ' class="alt"':'';
-    let row1='<tr'+alt+'><td class="sym" rowspan="2">'+sym+'</td>';
-    let row2='<tr'+alt+'>';
-    accs.forEach((a,idx)=>{
-      // 该交易对下的编号：账户1多=1/空=2，账户2多=3/空=4 …
-      const nLong=idx*2+1, nShort=idx*2+2;
-      row1+=cellOf(a,sym,d1,d1==="多单"?nLong:nShort);
-      row2+=cellOf(a,sym,d2,d2==="多单"?nLong:nShort);
-    });
-    const sep=rows.length?'<tr class="pair-sep"><td colspan="'+(1+accs.length*3)+'"></td></tr>':'';
-    rows.push(sep+row1+'</tr>'+row2+'</tr>');
-  });
-  const body=rows.length?rows.join(''):'<tr><td class="empty" colspan="'+(1+accs.length*3)+'">'+(VIEW==="all"?"暂无可显示的交易对":"当前没有可显示的交易对（所有交易对都还有未跌破 -100% 的持仓）")+'</td></tr>';
-  document.getElementById("tblWrap").innerHTML='<div class="card tbl"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
-  const errs=results.filter(r=>r.err);
-  const cnts=results.map(r=>esc(r.acc.name)+(r.err?(" ✗ "+esc(r.err)):(" ✓ "+Object.keys(r.map).length+" 个持仓交易对"))).join("  ·  ");
-  setStatus((errs.length?(errs.length+" 个账户失败；"):"")+cnts+
-    (VIEW==="all"?"  · 当前显示全部交易对":(hidden?("  · 已隐藏 "+hidden+" 个仍有仓位未跌破 -100% 的交易对"):"")));
-}
-/* ============ 操作记录（下单成功/失败，本地保存） ============ */
-function getLogs(){ try{ return JSON.parse(localStorage.getItem("op_log_v1")||"[]"); }catch(e){ return []; } }
-function addLog(type, text, sym, acct){
-  const logs=getLogs();
-  logs.unshift({t:Date.now(), type, text, sym, acct});
-  if(logs.length>50) logs.length=50;
-  try{ localStorage.setItem("op_log_v1", JSON.stringify(logs)); }catch(e){}
-  renderLog();
-}
-function renderLog(){
-  const logs=getLogs().slice(0,5);   // 最近 5 条操作记录
-  const el=document.getElementById("opLog");
-  const title='<div class="oplog-title">最近操作记录</div>';
-  if(!logs.length){ el.innerHTML=title+'<div class="oplog-empty">暂无操作记录</div>'; return; }
-  el.innerHTML=title+logs.map(l=>{
-    const d=new Date(l.t);
-    const hm=("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);
-    return '<div class="oplog-item '+l.type+'">'+hm+' '+esc(l.text)+'</div>';
-  }).join("");
-}
-/* ============ 下单（系统最小金额开仓 / 等量加仓 / ROI 跌破 -100% 才可加仓） ============ */
-const ROI_BLOCK = -100;   // 投资回报率 ≤ -100%（跌破）：可以加仓；高于 -100%：禁止加仓
-/* 交易规则（步长/最小数量/最小开仓额）本地缓存 7 天：exchangeInfo 体积很大，不再每次开仓都整份下载 */
-const RULE_KEY = "cm_rules_v1";
-const RULE_TTL = 7*24*3600*1000;
-let RULES=null, rulesWarm=false;
+function rulesReady(){ loadRulesCache(); return Object.keys(RULES).length>0; }
 function ruleFromInfo(info, sym){
   const s=(info.symbols||[]).find(x=>x.symbol===sym);
   if(!s) return null;
-  const f={}; (s.filters||[]).forEach(x=>{ f[x.filterType]=x; });
+  const f={};
+  (s.filters||[]).forEach(x=>{ f[x.filterType]=x; });
   const lot=f.MARKET_LOT_SIZE||f.LOT_SIZE||{};
   let step=parseFloat(lot.stepSize)||0;
   if(step<=0) step=Math.pow(10,-(parseInt(s.quantityPrecision,10)||3));
   return {
     step,
+    precision: parseInt(s.quantityPrecision,10)||3,
     minQty: parseFloat(lot.minQty)||0,
     minNotional: parseFloat((f.MIN_NOTIONAL||{}).notional)||0
   };
 }
-function loadRulesCache(){
-  if(RULES) return;
-  try{
-    const d=JSON.parse(localStorage.getItem(RULE_KEY)||"null");
-    if(d && d.m && Date.now()-d.t<RULE_TTL) RULES=d.m;
-  }catch(e){}
-  if(!RULES) RULES={};
-}
-function rulesReady(){
-  loadRulesCache();
-  return PAIRS.every(([s])=>!!RULES[s]);
-}
-// 首次进入后台预取一次，用户点「开仓」时不再等待大文件下载
-let rulesPromise=null;
 function fetchRules(){
-  if(rulesPromise) return rulesPromise;          // 并发请求合并成一次下载
+  if(rulesPromise) return rulesPromise;
+  // 已有规则且 10 分钟内拉过：不再反复请求
+  if(Object.keys(RULES).length && Date.now()-rulesLastFetch<600000) return Promise.resolve(true);
   rulesPromise=(async()=>{
     try{
-      const info=await apiGet("/fapi/v1/exchangeInfo", 10000);
+      const info=await apiGet("/fapi/v1/exchangeInfo", 12000);
       if(!info || !info.symbols) return false;
       PAIRS.forEach(([s])=>{ const r=ruleFromInfo(info,s); if(r) RULES[s]=r; });
-      try{ localStorage.setItem(RULE_KEY, JSON.stringify({t:Date.now(), m:RULES})); }catch(e){}
-      return true;
+      rulesLastFetch=Date.now(); RULES_T=rulesLastFetch;
+      try{ localStorage.setItem(RULE_KEY, JSON.stringify({t:rulesLastFetch, m:RULES})); }catch(e){}
+      return Object.keys(RULES).length>0;
     }catch(e){ return false; }
     finally{ rulesPromise=null; }
   })();
   return rulesPromise;
 }
 async function warmRules(){
-  if(rulesWarm || rulesReady()) return;
+  if(rulesWarm) return;
+  if(rulesReady() && Date.now()-RULES_T<86400000) return;   // 一天内不再重复拉
   rulesWarm=true;
   if(!(await fetchRules())) rulesWarm=false;
 }
 async function getRule(sym){
-  if(rulesReady() && RULES[sym]) return RULES[sym];
+  if(!RULES) loadRulesCache();
+  if(RULES[sym] && Date.now()-RULES_T<86400000) return RULES[sym];
   await fetchRules();
-  return RULES[sym]||null;
+  return RULES[sym] || null;
 }
 function stepDecimals(step){
   const s=String(step), i=s.indexOf(".");
   return i<0?0:s.length-i-1;
 }
-// 向上取整到步长（保证折算金额不低于系统最小开仓额）
 function ceilStep(v, step){
-  if(!step||step<=0) return v;
+  if(!step || step<=0) return v;
   const d=stepDecimals(step);
   return parseFloat((Math.ceil(v/step-1e-9)*step).toFixed(d));
 }
-async function getDualSide(acc){
-  const j=await signedFetch(acc,"/fapi/v1/positionSide/dual");
-  return !!j.dualSidePosition;
+function qtyFixed(v,dec){
+  const n=parseFloat(v);
+  if(!isFinite(n)) return String(v);
+  const d=Math.min(Math.max(dec==null?8:dec,0),8);
+  let s=n.toFixed(d);
+  if(s.indexOf(".")>=0) s=s.replace(/0+$/,"").replace(/\.$/,"");
+  return s;
 }
-// 按系统最小开仓额折算下单数量（向上取整到步长，不低于 minQty / minNotional）
+
+/* ===================== 持仓计算 ===================== */
+function posNotional(p){
+  const n=Math.abs(parseFloat(p.notional));
+  if(n>0) return n;
+  return Math.abs(parseFloat(p.positionAmt))*parseFloat(p.markPrice||p.entryPrice||0);
+}
+function calcRoi(p,acc){
+  const qty=Math.abs(parseFloat(p.positionAmt));
+  const entry=parseFloat(p.entryPrice), upnl=parseFloat(p.unRealizedProfit), lev=parseFloat(p.leverage)||1;
+  let margin=parseFloat(p.positionInitialMargin || p.initialMargin || p.isolatedMargin);
+  if(!(margin>0)) margin=qty*entry/lev;
+  let roi = margin>0 ? (upnl/margin*100) : NaN;
+  if(acc && acc.is5x && !isNaN(roi)) roi *= LEV5_SCALE;
+  return roi;
+}
+function roiAddable(p,acc){ const roi=calcRoi(p,acc); return isFinite(roi) && roi<=ROI_BLOCK; }
+function roiOver(p,acc){ return !roiAddable(p,acc); }
+function findPos(accId,sym,dir){
+  const r=accRes(accId);
+  if(!r || r.err) return null;
+  const m=r.map[sym];
+  const p=m ? (dir==="多单"?m.long:m.short) : null;
+  return p || null;
+}
+function pairStats(sym){
+  const st={posCnt:0,overCnt:0,sumLong:0,sumShort:0};
+  state.accs.forEach(a=>{
+    const pL=findPos(a.id,sym,"多单"), pS=findPos(a.id,sym,"空单");
+    if(pL){ st.posCnt++; st.sumLong+=Math.abs(parseFloat(pL.positionAmt)||0); if(roiOver(pL,a)) st.overCnt++; }
+    if(pS){ st.posCnt++; st.sumShort+=Math.abs(parseFloat(pS.positionAmt)||0); if(roiOver(pS,a)) st.overCnt++; }
+  });
+  return st;
+}
+function slotKey(accId,sym,dir){ return accId+"|"+sym+"|"+dir; }
+
+/* ===================== 刷新（单飞） ===================== */
+function syncRefreshBtn(){
+  const b=$("btnRefresh");
+  if(!b) return;
+  b.disabled=state.fetching;
+  setText(b, state.fetching?"刷新中…":"刷新");
+}
+async function doRefresh(opts){
+  const silent=!!(opts && opts.silent);
+  const accs=state.accs;
+  if(!accs.length) return false;
+  const t0=performance.now();
+  state.fetching=true; syncRefreshBtn();
+  await pingNet();
+  try{
+    const results=await Promise.all(accs.map(async acc=>{
+      try{
+        const rows=await signedFetch(acc, "/fapi/v2/positionRisk");
+        if(!Array.isArray(rows)) throw new Error("接口异常："+((rows&&rows.msg)||"非数组返回"));
+        const map={};
+        rows.forEach(p=>{
+          const amt=parseFloat(p.positionAmt);
+          if(!amt) return;
+          const side=amt>0?"long":"short";
+          (map[p.symbol]=map[p.symbol]||{})[side]=p;
+        });
+        return {acc, map, err:null};
+      }catch(e){
+        const msg=(e&&e.message)||String(e);
+        return {acc, map:{}, err:/401|-2014/.test(msg)?"API Key 无效或权限不足（-2014）":msg};
+      }
+    }));
+    setResults(results);
+    state.dur=(performance.now()-t0)/1000;
+    render();
+    saveCache();
+    return true;
+  }catch(e){
+    if(!silent) toast("刷新失败："+((e&&e.message)||e), "err");
+    return false;
+  }finally{
+    state.fetching=false; syncRefreshBtn();
+  }
+}
+function refresh(opts){
+  if(flight) return flight;
+  const p=doRefresh(opts);
+  flight=p;
+  p.finally(()=>{ if(flight===p) flight=null; });
+  return p;
+}
+/* 操作后要看到的一定是最新数据：先等上一次拉取结束，再完整重拉 */
+async function refreshNow(){
+  const t0=Date.now();
+  while(flight && Date.now()-t0<8000) await sleep(200);
+  return await refresh();
+}
+
+/* ===================== 缓存 ===================== */
+function saveCache(){
+  try{
+    const r=state.results.map(x=>({id:x.acc.id, err:x.err||null, map:x.map||{}}));
+    localStorage.setItem(CACHE_KEY, JSON.stringify({t:Date.now(), r}));
+  }catch(e){}
+}
+function paintCache(){
+  let d=null;
+  [CACHE_KEY, "cm_cache_v2"].some(k=>{
+    try{
+      const v=JSON.parse(localStorage.getItem(k)||"null");
+      if(v && Array.isArray(v.r) && v.r.length){ d=v; return true; }
+    }catch(e){}
+    return false;
+  });
+  if(!d) return false;
+  const results=d.r.map(x=>{
+    const acc=state.accs.find(a=>a.id===x.id);
+    return acc ? {acc, map:x.map||{}, err:x.err||null} : null;
+  }).filter(Boolean);
+  if(!results.length) return false;
+  setResults(results);
+  state.cacheAt=d.t;
+  render();
+  setStatus("已显示 "+hhmmss(new Date(d.t))+" 的缓存，正在刷新…");
+  return true;
+}
+
+/* ===================== 表格渲染（结构只建一次，数据原地更新） ===================== */
+let skel={sig:"", views:null, tags:null};
+
+function visiblePairs(){
+  const out=[];
+  PAIRS.forEach(([sym])=>{
+    if(state.view==="all"){ out.push(sym); return; }
+    const st=pairStats(sym);
+    if(st.posCnt===0 || st.overCnt===0) out.push(sym);
+  });
+  return out;
+}
+function accSignature(){
+  return state.accs.map(a=>a.id+":"+a.name+":"+(a.is5x?1:0)).join(",");
+}
+function mkCells(row, accs, sym){
+  const cells=[];
+  accs.forEach(a=>{
+    const pos=document.createElement("td"); pos.className="pos dash";
+    const dirSpan=document.createElement("span"); dirSpan.className="dir";
+    const valSpan=document.createElement("span"); valSpan.className="val"; valSpan.textContent="—";
+    pos.appendChild(dirSpan); pos.appendChild(valSpan);
+
+    const roi=document.createElement("td"); roi.className="roi dash"; roi.textContent="—";
+
+    const op=document.createElement("td"); op.className="op";
+    const sno=document.createElement("span"); sno.className="sno"; sno.textContent="#";
+    const btn=document.createElement("button"); btn.className="btn sm op-btn"; btn.textContent="开仓";
+    btn.dataset.acc=String(a.id); btn.dataset.sym=sym; btn.dataset.dir="多单";
+    btn.addEventListener("click", ()=>onOpen(btn));
+    const errTag=document.createElement("span"); errTag.className="errTag"; errTag.textContent="数据失败"; errTag.style.display="none";
+    op.appendChild(sno); op.appendChild(btn); op.appendChild(errTag);
+
+    row.appendChild(pos); row.appendChild(roi); row.appendChild(op);
+    cells.push({pos,dirSpan,valSpan,roi,btn,sno,errTag});
+  });
+  return cells;
+}
+function buildTable(accs){
+  const wrap=$("tblWrap");
+  const sl=wrap.scrollLeft, st=wrap.scrollTop;
+  const table=document.createElement("table");
+  const thead=document.createElement("thead");
+
+  const h1=document.createElement("tr");
+  const th0=document.createElement("th"); th0.className="sym"; th0.rowSpan=2; th0.textContent="交易对";
+  h1.appendChild(th0);
+  const tags={};
+  accs.forEach(a=>{
+    const th=document.createElement("th"); th.className="acct-head"; th.colSpan=3;
+    th.style.width="calc((100% - 150px)/"+accs.length+")";
+    const nm=document.createElement("span"); nm.textContent=a.name; th.appendChild(nm);
+    if(a.is5x){ const t=document.createElement("span"); t.className="mini5"; t.textContent="5x"; th.appendChild(t); }
+    const tag=document.createElement("span"); tag.className="tag na"; tag.textContent="未获取"; th.appendChild(tag);
+    tags[a.id]=tag;
+    h1.appendChild(th);
+  });
+  const h2=document.createElement("tr");
+  accs.forEach(()=>{
+    ["持仓(USDT)","ROI","操作"].forEach(t=>{
+      const th=document.createElement("th"); th.className="sub"; th.textContent=t; h2.appendChild(th);
+    });
+  });
+  thead.appendChild(h1); thead.appendChild(h2);
+  table.appendChild(thead);
+
+  const tbody=document.createElement("tbody");
+  const views={};
+  PAIRS.forEach(([sym],pi)=>{
+    let gap=null;
+    if(pi>0){
+      gap=document.createElement("tr"); gap.className="gap";
+      const gd=document.createElement("td"); gd.colSpan=1+accs.length*3; gap.appendChild(gd);
+      tbody.appendChild(gap);
+    }
+    const alt=pi%2===1;
+    const rowA=document.createElement("tr"); const rowB=document.createElement("tr");
+    if(alt){ rowA.className="alt"; rowB.className="alt"; }
+    const symTd=document.createElement("td"); symTd.className="sym"; symTd.rowSpan=2;
+    symTd.textContent=sym; symTd.title=sym+" "+PAIR_NAMES[sym];
+    rowA.appendChild(symTd);
+    const cellsA=mkCells(rowA, accs, sym);
+    const cellsB=mkCells(rowB, accs, sym);
+    tbody.appendChild(rowA); tbody.appendChild(rowB);
+    views[sym]={cellsA,cellsB,rowA,rowB,gap};
+  });
+  table.appendChild(tbody);
+  wrap.innerHTML="";
+  wrap.appendChild(table);
+  const empty=document.createElement("div");
+  empty.className="empty"; empty.id="tblEmpty"; empty.style.display="none";
+  wrap.appendChild(empty);
+  wrap.scrollLeft=sl; wrap.scrollTop=st;
+  skel.sig=accSignature(); skel.views=views; skel.tags=tags; skel.table=table; skel.empty=empty;
+}
+function updateRow(cells, sym, dir){
+  cells.forEach((c,ai)=>{
+    const acc=state.accs[ai];
+    const no=ai*2+(dir==="多单"?1:2);
+    setText(c.sno,"#"+no);
+    c.btn.dataset.dir=dir;
+
+    const res=accRes(acc.id);
+    if(!res || res.err){
+      setCls(c.pos,"pos dash");
+      setText(c.dirSpan, dir==="多单"?"多":"空"); setText(c.valSpan,"—");
+      setCls(c.roi,"roi dash"); setText(c.roi,"—");
+      c.btn.style.display="none";
+      c.errTag.style.display="";
+      setText(c.errTag, res ? "数据失败" : "待刷新");
+      const msg=res&&res.err?res.err:"数据未加载";
+      if(c.errTag.title!==msg) c.errTag.title=msg;
+      return;
+    }
+    c.errTag.style.display="none";
+    const p=findPos(acc.id,sym,dir);
+    if(!p){
+      setCls(c.pos,"pos dash");
+      setText(c.dirSpan, dir==="多单"?"多":"空"); setText(c.valSpan,"—");
+      setCls(c.roi,"roi dash"); setText(c.roi,"—");
+      c.btn.style.display="";
+      setText(c.btn,"开仓"); c.btn.disabled=false;
+      c.btn.title="按系统最小开仓额市价开"+dir;
+      return;
+    }
+    const notional=posNotional(p);
+    const roi=calcRoi(p,acc);
+    setCls(c.pos,"pos "+(dir==="多单"?"long":"short"));
+    setText(c.dirSpan, dir==="多单"?"多":"空");
+    setText(c.valSpan, fmtUsd(notional));
+    setCls(c.roi, "roi "+(isFinite(roi)?(roi>=0?"plus":"minus"):"dash"));
+    setText(c.roi, isFinite(roi)?(roi.toFixed(2)+"%"):"—");
+    c.btn.style.display="";
+    setText(c.btn,"加仓");
+    const blocked=!roiAddable(p,acc);
+    c.btn.disabled=blocked;
+    c.btn.title=blocked
+      ? ("ROI "+(isFinite(roi)?roi.toFixed(2)+"%":"未知")+" 未跌破 -100%，禁止加仓")
+      : "等量加仓（数量与当前持仓相同）";
+  });
+}
+function updateHeader(){
+  state.accs.forEach(a=>{
+    const tag=skel.tags && skel.tags[a.id];
+    if(!tag) return;
+    const res=accRes(a.id);
+    if(!res){ setCls(tag,"tag na"); setText(tag,"未获取"); tag.title=""; return; }
+    if(res.err){ setCls(tag,"tag err"); setText(tag,"失败"); tag.title=res.err; return; }
+    setCls(tag,"tag ok"); setText(tag,"OK"); tag.title="";
+  });
+}
+function updateSummary(vis){
+  const parts=[];
+  state.accs.forEach(a=>{
+    const r=accRes(a.id);
+    if(!r){ parts.push(a.name+" 待刷新"); return; }
+    if(r.err){ parts.push(a.name+" 失败"); return; }
+    let n=0, total=0;
+    Object.keys(r.map).forEach(sym=>{
+      ["long","short"].forEach(k=>{
+        const p=r.map[sym][k];
+        if(p){ n++; total+=posNotional(p); }
+      });
+    });
+    parts.push(a.name+": "+n+" 仓 "+fmtUsd(total));
+  });
+  const hidden=PAIRS.length-vis.length;
+  $("summary").textContent=(hidden&&state.view!=="all"?("已隐藏 "+hidden+" 个交易对 · "):"")+parts.join("  |  ");
+}
+function renderEmpty(){
+  skel.sig=""; skel.views=null; skel.tags=null; skel.table=null; skel.empty=null;
+  $("tblWrap").innerHTML='<div class="empty">尚未添加账户。点击右上角「设置 API 密钥」填入 API Key 后查看持仓。</div>';
+  $("summary").textContent="";
+}
+function render(){
+  const accs=state.accs;
+  if(!accs.length){ renderEmpty(); return; }
+  if(!skel.views || skel.sig!==accSignature()) buildTable(accs);
+  const vis=visiblePairs();
+  const visSet=new Set(vis);
+  let any=false, hasPrev=false;
+  PAIRS.forEach(([sym])=>{
+    const v=skel.views[sym];
+    if(!v) return;
+    const show=visSet.has(sym);
+    v.rowA.style.display=show?"":"none";
+    v.rowB.style.display=show?"":"none";
+    if(v.gap) v.gap.style.display=(show && hasPrev)?"":"none";
+    if(show){
+      const st=pairStats(sym);
+      const d1=st.sumLong>=st.sumShort?"多单":"空单";
+      const d2=d1==="多单"?"空单":"多单";
+      updateRow(v.cellsA, sym, d1);
+      updateRow(v.cellsB, sym, d2);
+      hasPrev=true; any=true;
+    }
+  });
+  if(skel.table) skel.table.style.display=any?"":"none";
+  if(skel.empty){
+    skel.empty.style.display=any?"none":"flex";
+    skel.empty.textContent="当前没有可显示的交易对（所有交易对都还有未跌破 -100% 的持仓）";
+  }
+  updateHeader();
+  updateSummary(vis);
+}
+function updateViewBtn(){
+  const b=$("viewBtn");
+  if(!b) return;
+  b.textContent = state.view==="all" ? "只看筛选" : "显示全部";
+  b.title = state.view==="all" ? "回到按整体规则筛选后的视图" : "显示全部交易对（含空仓、已亏穿的）";
+}
+function toggleView(){
+  state.view = state.view==="all" ? "filter" : "all";
+  updateViewBtn();
+  render();
+}
+
+/* ===================== 操作记录 ===================== */
+function getLogs(){ try{ return JSON.parse(localStorage.getItem(LOG_KEY)||"[]") || []; }catch(e){ return []; } }
+function addLog(type, text){
+  const logs=getLogs();
+  logs.unshift({t:Date.now(), type, text});
+  if(logs.length>50) logs.length=50;
+  try{ localStorage.setItem(LOG_KEY, JSON.stringify(logs)); }catch(e){}
+  renderLog();
+}
+function renderLog(){
+  const box=$("opLog");
+  const logs=getLogs().slice(0,5);
+  if(!logs.length){ box.innerHTML='<div class="empty">暂无操作记录</div>'; return; }
+  box.innerHTML=logs.map(l=>{
+    const d=new Date(l.t);
+    return '<div class="'+(l.type==="ok"?"ok":"err")+'"><span class="t">'+hhmmss(d)+'</span>'+esc(l.text)+'</div>';
+  }).join("");
+}
+
+/* ===================== 弹窗 ===================== */
+function openDialog(o){
+  dlgOnOk=o.onOk||null;
+  $("dlgTitle").textContent=o.title||"提示";
+  $("dlgBody").textContent=o.body||"";
+  const ok=$("dlgOk");
+  ok.textContent=o.okText||"确认";
+  ok.className="btn "+(o.danger?"danger":"primary");
+  ok.disabled=false;
+  $("dlgCancel").style.display=o.hideCancel?"none":"";
+  $("dlgMask").classList.add("show");
+}
+function closeDialog(){
+  $("dlgMask").classList.remove("show");
+  dlgOnOk=null;
+}
+function showInfo(title,body){ openDialog({title, body, okText:"知道了", hideCancel:true}); }
+
+/* ===================== 下单 ===================== */
+async function getDual(acc){
+  if(dualCache[acc.id]!==undefined) return dualCache[acc.id];
+  let dual=false;
+  try{
+    const j=await signedFetch(acc,"/fapi/v1/positionSide/dual");
+    const v=j && j.dualSidePosition;
+    dual = (v===true || v==="true");
+  }catch(e){}
+  dualCache[acc.id]=dual;
+  return dual;
+}
+async function wouldFlip(acc,sym,dir){
+  const opp=findPos(acc.id, sym, dir==="多单"?"空单":"多单");
+  if(!opp) return false;
+  return !(await getDual(acc));
+}
 async function openPlan(sym){
   const [rule, tk]=await Promise.all([
     getRule(sym),
-    apiGet("/fapi/v1/ticker/price?symbol="+sym+"&t="+Date.now(), 5000)
+    apiGet("/fapi/v1/premiumIndex?symbol="+sym+"&t="+Date.now(), 5000)
   ]);
   if(!rule || !rule.minNotional) throw new Error("未获取到系统最小开仓额");
-  const price=parseFloat(tk && tk.price);
+  const price=parseFloat(tk && (tk.markPrice || tk.price));
   if(!(price>0)) throw new Error("获取价格失败");
-  let qty=ceilStep(rule.minNotional/price, rule.step);
+  let qty=ceilStep(rule.minNotional*1.002/price, rule.step);
   if(rule.minQty>0 && qty<rule.minQty) qty=rule.minQty;
-  if(qty*price<rule.minNotional) qty=ceilStep(rule.minNotional*1.001/price, rule.step);
-  return {qty, price, minNotional:rule.minNotional};
+  if(qty*price<rule.minNotional) qty=ceilStep(rule.minNotional*1.005/price, rule.step);
+  return {qty, price, minNotional:rule.minNotional, dec:stepDecimals(rule.step)};
 }
-// 市价下单（自动识别单向/双向持仓模式）
-async function sendMarket(acc,sym,dir,qty){
-  const dual=await getDualSide(acc);
-  const params={symbol:sym, side:dir==="多单"?"BUY":"SELL", type:"MARKET", quantity:String(qty), newOrderRespType:"ACK"};
-  if(dual) params.positionSide=dir==="多单"?"LONG":"SHORT";
-  return await signedFetch(acc,"/fapi/v1/order","POST",params);
-}
-let PENDING=null;
-async function openOrder(accId, sym, dir){
-  const acc=loadAcc().find(x=>x.id===accId);
-  if(!acc) return;
-  const p=findPosOf(accId,sym,dir);
-  let action, qty, usd, minN=0;
-  if(p){
-    const roi=calcRoi(p,acc);
-    if(!roiAddable(p,acc)){
-      alert("该持仓投资回报率 "+(isNaN(roi)?"未知":roi.toFixed(2)+"%")+"，未跌破 -100%，不能加仓");
-      return;
-    }
-    action="加仓";
-    qty=Math.abs(parseFloat(p.positionAmt));   // 加仓数量 = 当前仓位数量（等量）
-    usd=posNotional(p);
-  }else{
-    action="开仓";
+async function sendMarket(acc,sym,dir,qty,dec){
+  const dual=await getDual(acc);
+  const wanted=dir==="多单"?"LONG":"SHORT";
+  const cands=dual?[wanted,"BOTH"]:["BOTH",wanted];    // 兼容双向/单向持仓模式
+  const side=dir==="多单"?"BUY":"SELL";
+  const quantity=qtyFixed(qty,dec==null?8:dec);
+  let lastErr=null;
+  for(const ps of cands){
     try{
-      const pl=await openPlan(sym);
-      qty=pl.qty; usd=qty*pl.price; minN=pl.minNotional;
-    }catch(e){ alert(e.message); return; }
+      return await signedFetch(acc,"/fapi/v1/order","POST",{
+        symbol:sym, side, type:"MARKET", quantity, positionSide:ps, newOrderRespType:"ACK"
+      });
+    }catch(e){
+      if(/4061|position side|持仓方向/i.test((e&&e.message)||"")){ lastErr=e; continue; }
+      throw e;
+    }
   }
-  const cn=(PAIRS.find(x=>x[0]===sym)||[])[1]||"";
-  PENDING={acc,sym,dir,action,qty,usd};
-  document.getElementById("ordBody").innerHTML=
-    '<div>账户：<b>'+esc(acc.name)+'</b></div>'+
-    '<div>交易对：<b>'+sym+' '+esc(cn)+'</b></div>'+
-    '<div>操作：<b>'+(action==="加仓"?"等量加仓":"开仓")+' '+dir+'</b></div>'+
-    '<div>数量：<b>'+qty+'</b>（约 '+fmtUsd(usd)+'）</div>'+
-    (action==="开仓" && minN>0 ? '<div>下单基准：<b>系统最小开仓额 '+minN.toFixed(2)+' USDT</b></div>' : '')+
-    '<div>类型：市价单（按当前市价立即成交）</div>'+
-    '<div class="ord-warn">请确认账户余额充足。市价单可能产生滑点，成交后自动刷新持仓。</div>';
-  document.getElementById("ordMask").classList.add("open");
+  throw lastErr || new Error("下单失败");
 }
-function closeOrder(){ document.getElementById("ordMask").classList.remove("open"); }
-// 实时查单个方向的持仓（下单前复核用）
 async function livePos(acc,sym,dir){
   const rows=await signedFetch(acc,"/fapi/v2/positionRisk","GET",{symbol:sym});
   if(!Array.isArray(rows)) throw new Error("持仓查询失败，已取消下单");
   const sign=dir==="多单"?1:-1;
-  return rows.find(x=>x.symbol===sym && Math.sign(parseFloat(x.positionAmt)||0)===sign)||null;
+  return rows.find(x=>x.symbol===sym && Math.sign(parseFloat(x.positionAmt)||0)===sign) || null;
 }
-async function placeOrder(){
-  const t=PENDING;
-  if(!t) return;
-  closeOrder();
-  PENDING=null;
-  const who=t.acc.name+" "+t.sym+" "+t.action+t.dir;   // 日志统一前缀
+async function onOpen(btn){
+  const accId=Number(btn.dataset.acc);
+  const sym=btn.dataset.sym;
+  const dir=btn.dataset.dir||"多单";
+  const acc=state.accs.find(a=>a.id===accId);
+  if(!acc) return;
+  if(!accRes(acc.id)){ toast("该账户持仓数据尚未加载，请先刷新","warn"); return; }
+  if(state.fetching){ toast("正在刷新持仓，请稍候再操作","warn"); return; }
+
+  const p=findPos(acc.id,sym,dir);
+  let plan;
+  const oldText=btn.textContent;
+  btn.disabled=true; btn.textContent="计算中…";
   try{
-    let qty=t.qty;
-    if(t.action==="加仓"){
-      // 下单前实时复核：ROI 必须已跌破 -100%（≤ -100%）才允许加仓，高于 -100% 则拒绝；加仓数量取当前仓位数量
-      const p=await livePos(t.acc,t.sym,t.dir);
-      if(!p) throw new Error("未查到该持仓，已取消加仓");
-      const roi=calcRoi(p,t.acc);
-      if(!roiAddable(p,t.acc)){
-        throw new Error("投资回报率 "+(isNaN(roi)?"未知":roi.toFixed(2)+"%")+"，未跌破 -100%，不能加仓");
-      }
-      qty=Math.abs(parseFloat(p.positionAmt));
-      if(!(qty>0)) throw new Error("当前仓位数量为 0，已取消加仓");
-    }
-    const j=await sendMarket(t.acc,t.sym,t.dir,qty);
-    if(j.orderId){
-      addLog("ok", who+" 数量 "+qty+"（订单 "+j.orderId+"）", t.sym, t.acc.name);
-      setStatus(who+"成功（订单 "+j.orderId+"）");
-      loadAll();
+    if(p){
+      const roi=calcRoi(p,acc);
+      if(!roiAddable(p,acc)) throw new Error("当前 ROI "+(isFinite(roi)?roi.toFixed(2)+"%":"未知")+"，未跌破 -100%，不能加仓");
+      plan={action:"加仓", qty:Math.abs(parseFloat(p.positionAmt)), dec:8, usd:posNotional(p), roi};
     }else{
-      const msg=j.msg||JSON.stringify(j).slice(0,120);
-      addLog("err", who+" 失败："+msg, t.sym, t.acc.name);
-      alert("下单失败："+msg);
+      if(await wouldFlip(acc,sym,dir)) throw new Error("该账户为单向持仓模式且已有反向仓位，市价反手会先平仓，已取消");
+      const pl=await openPlan(sym);
+      plan={action:"开仓", qty:pl.qty, dec:pl.dec, price:pl.price, usd:pl.qty*pl.price, minNotional:pl.minNotional};
     }
   }catch(e){
-    addLog("err", who+" 失败："+e.message, t.sym, t.acc.name);
-    alert("下单失败："+e.message);
-  }
-}
-/* ============ 自动开仓（9 秒循环 · 读秒 · 网络状态） ============ */
-const CYCLE_SEC=9;          // 每轮刷新间隔（秒）
-const ORDER_GAP_MS=2000;    // 每笔开仓之间的间隔，避免连开
-let AUTO=false, autoRunning=false, cdLeft=CYCLE_SEC, cdTimer=null;
-let OPENED={};              // "accId|sym|dir" → 本次自动开仓已成功，避免重复下单
-let autoFails=[];           // 最近 20 条开仓失败原因，重复的不再记录
-function slotKey(accId,sym,dir){ return accId+"|"+sym+"|"+dir; }
-async function sleepAuto(ms){          // 可被「停止」打断的等待
-  const t0=Date.now();
-  while(Date.now()-t0<ms){ if(!AUTO) return false; await new Promise(r=>setTimeout(r,200)); }
-  return true;
-}
-function renderCd(){
-  const el=document.getElementById("cd");
-  if(!el) return;
-  el.textContent = AUTO ? (cdLeft+"s") : "—";
-  el.className = AUTO ? "pill cd" : "pill cd idle";
-}
-function setNet(ok){
-  const el=document.getElementById("net");
-  if(!el) return;
-  el.textContent = ok?"● 网络正常":"● 网络异常";
-  el.className = "pill "+(ok?"green":"red");
-}
-async function pingNet(){
-  if(syncOk && Date.now()-lastSync<5000) return true;   // 5 秒内刚测过，不重复请求
-  return await syncOnce();
-}
-function findPosOf(accId,sym,dir){
-  const r=lastResults.find(x=>x.acc.id===accId);
-  if(!r || r.err) return null;
-  const m=r.map[sym];
-  return dir==="多单" ? (m&&m.long) : (m&&m.short);
-}
-async function toggleAuto(){
-  if(AUTO){ stopAuto(); return; }
-  if(autoRunning) return;
-  AUTO=true; OPENED={}; autoFails=[];
-  const b=document.getElementById("autoBtn");
-  if(b){ b.textContent="停止"; b.classList.add("gold"); }
-  cdLeft=CYCLE_SEC; renderCd();
-  setStatus("自动开仓已启动，正在检测…");
-  autoRun();
-}
-function stopAuto(){
-  AUTO=false;
-  clearInterval(cdTimer); cdTimer=null;
-  cdLeft=CYCLE_SEC; renderCd();
-  const b=document.getElementById("autoBtn");
-  if(b){ b.textContent="开始"; b.classList.remove("gold"); }
-  setStatus("已停止自动开仓");
-}
-async function cycleWait(){
-  return new Promise(res=>{
-    cdLeft=CYCLE_SEC; renderCd();
-    clearInterval(cdTimer);
-    cdTimer=setInterval(()=>{
-      if(!AUTO){ clearInterval(cdTimer); cdTimer=null; cdLeft=0; renderCd(); res(); return; }
-      cdLeft--;
-      renderCd();
-      if(cdLeft<=0){ clearInterval(cdTimer); cdTimer=null; res(); }
-    },1000);
-  });
-}
-async function autoRun(){
-  if(autoRunning) return;
-  autoRunning=true;
-  try{
-    while(AUTO){
-      await pingNet();
-      if(!AUTO) break;
-      await loadAll();                 // 9 秒一轮的持仓刷新
-      if(!AUTO) break;
-      // 已确认落地的仓位从「待开仓」名单里移除
-      for(const k in OPENED){
-        const p=k.split("|");
-        if(findPosOf(Number(p[0]),p[1],p[2])) delete OPENED[k];
-      }
-      await autoPass();
-      if(!AUTO) break;
-      await cycleWait();               // 读秒，等下一轮
-    }
-  }finally{ autoRunning=false; }
-}
-// 该交易对是否符合「开仓」条件（与表格筛选同一口径）：
-// 没有任何仓位，或所有已有仓位 ROI 都 ≤ -100%
-function pairNeedsOpen(sym,accs){
-  const st=pairStats(sym,accs);
-  return (st.posCnt+st.openedCnt)===0 || (st.overCnt+st.openedCnt)===0;
-}
-async function autoPass(){
-  const accs=loadAcc();
-  if(!accs.length){ setStatus("自动开仓：尚未设置账户"); return; }
-  // 只扫当前筛选出来的交易对，不做全盘扫描
-  const targets=PAIRS.filter(([sym])=>pairNeedsOpen(sym,accs));
-  if(!targets.length){
-    setStatus("自动开仓：当前没有符合开仓条件的交易对，"+CYCLE_SEC+" 秒后重新检测");
+    toast(e.message,"err");
+    btn.disabled=false; btn.textContent=oldText;
+    render();
     return;
   }
-  let openedThisPass=0;
-  for(const [sym] of targets){
-    if(!AUTO) return;
-    if(!pairNeedsOpen(sym,accs)) continue;   // 处理前再判一次：已有仓位且未亏穿 → 不开
-    let opened=false, no=0;                  // opened：本交易对本次只开一单
-    for(const a of accs){
-      if(opened) break;
-      const rowState=lastResults.find(x=>x.acc.id===a.id);
-      const accErr=!rowState || rowState.err;     // 账户数据异常 → 本轮跳过，避免重复开仓
+  btn.disabled=false; btn.textContent=oldText;
+
+  const name=PAIR_NAMES[sym]||"";
+  const lines=[
+    "账户："+acc.name,
+    "交易对："+sym+(name?(" "+name):""),
+    "操作："+(plan.action==="加仓"?"等量加仓":"开仓")+dir,
+    "数量："+qtyFixed(plan.qty,plan.dec)+"（约 "+fmtUsd(plan.usd)+"）",
+    plan.action==="开仓" && plan.minNotional>0 ? ("下单基准：系统最小开仓额 "+plan.minNotional.toFixed(2)+" USDT") : "下单基准：当前仓位数量（等量）",
+    "类型：市价单（按当前市价立即成交）",
+    "",
+    "请确认账户余额充足。市价单可能产生滑点，成交后自动刷新持仓。"
+  ];
+  openDialog({
+    title:"确认下单",
+    body:lines.join("\n"),
+    okText:"确认下单",
+    danger:true,
+    onOk:()=>{ closeDialog(); placeOrder(acc,sym,dir,plan); }
+  });
+  render();
+}
+async function placeOrder(acc,sym,dir,plan){
+  const who=acc.name+" "+sym+(plan.action==="加仓"?" 等量加仓":" 开仓")+dir;
+  setStatus(who+" 提交中…");
+  try{
+    let qty=plan.qty, dec=plan.dec;
+    if(plan.action==="加仓"){
+      // 下单前实时复核：ROI 必须已跌破 -100%，数量取当前持仓
+      const p=await livePos(acc,sym,dir);
+      if(!p) throw new Error("未查到该持仓，已取消加仓");
+      const roi=calcRoi(p,acc);
+      if(!roiAddable(p,acc)) throw new Error("ROI "+(isFinite(roi)?roi.toFixed(2)+"%":"未知")+"，未跌破 -100%，不能加仓");
+      qty=Math.abs(parseFloat(p.positionAmt));
+      dec=stepDecimals(0.00000001);
+      if(!(qty>0)) throw new Error("当前仓位数量为 0，已取消加仓");
+    }
+    const j=await sendMarket(acc,sym,dir,qty,dec);
+    if(!j || !j.orderId) throw new Error((j&&j.msg)||"下单未返回订单号");
+    addLog("ok", who+" 数量 "+qtyFixed(qty,dec)+"（订单 "+j.orderId+"）");
+    toast("下单成功："+who,"ok");
+    setStatus(who+" 已成交，正在刷新…");
+    await refreshNow();
+    setStatus(who+" 已完成");
+  }catch(e){
+    const msg=(e&&e.message)||String(e);
+    addLog("err", who+" 失败："+msg);
+    toast("下单失败："+msg,"err");
+    setStatus("下单失败："+msg);
+    render();
+  }
+}
+
+/* ===================== 自动开仓 ===================== */
+function currentKeep(){ return PAIRS.map(([s])=>s).filter(sym=>pairNeedsOpen(sym)); }
+function pairNeedsOpen(sym){
+  const st=pairStats(sym);
+  return st.posCnt===0 || st.overCnt===0;
+}
+function firstEmptySlot(keep){
+  for(const sym of keep){
+    for(let ai=0; ai<state.accs.length; ai++){
+      const a=state.accs[ai];
+      const r=accRes(a.id);
+      if(!r || r.err) continue;                 // 账户数据不可用：本轮不碰
       for(const dir of DIRS){
-        no++;
-        if(!AUTO) return;
-        if(opened) break;                          // 已开成一单 → 放弃该交易对剩余编号
-        if(accErr) continue;
-        if(OPENED[slotKey(a.id,sym,dir)]) continue;      // 本会话已开过
-        if(findPosOf(a.id,sym,dir)) continue;            // 已有仓位 → 不是开仓
-        setStatus("自动开仓：第 "+no+" 号 "+a.name+" "+sym+" "+dir+" 开仓中…");
-        const r=await autoOpen(a,sym,dir);
-        if(r.ok){
-          OPENED[slotKey(a.id,sym,dir)]=true;
-          opened=true; openedThisPass++;
-          renderTable(accs,lastResults);                 // 立即刷新显示（该交易对随之隐藏）
-        }else{
-          setStatus("自动开仓：第 "+no+" 号 "+a.name+" "+sym+" "+dir+" 失败已跳过（"+r.msg+"），本轮结束后重试");
-        }
-        if(!(await sleepAuto(ORDER_GAP_MS))) return;     // 单笔间隔，避免连开
+        const key=slotKey(a.id,sym,dir);
+        if(auto.failed.has(key)) continue;
+        if(findPos(a.id,sym,dir)) continue;
+        return {acc:a, sym, dir, no:ai*2+(dir==="多单"?1:2)};
       }
     }
   }
-  if(AUTO) setStatus("自动开仓：本轮扫描 "+targets.length+" 个符合条件交易对，成功开 "+openedThisPass+" 个；"+CYCLE_SEC+" 秒后重新检测（"+ (autoFails.length?autoFails.slice(-3).join("；"):"无异常") +"）");
+  return null;
 }
-async function autoOpen(a,sym,dir){
+function setAutoStat(t){ setMsg($("autoStat"), t); }
+function renderCd(left){
+  const el=$("cdNum");
+  if(!el) return;
+  if(!auto.running){ el.textContent="--"; return; }
+  el.textContent = String(left);
+}
+function showNextSlot(slot){
+  if(!slot){ $("slotInfo").textContent=""; return; }
+  $("slotInfo").textContent="下一格：No."+slot.no+" "+slot.acc.name+" "+slot.sym+" "+slot.dir;
+}
+async function autoOpen(slot){
+  const acc=slot.acc;
+  if(!acc || !acc.key) return false;
+  if(await wouldFlip(acc,slot.sym,slot.dir)){
+    addLog("err", acc.name+" "+slot.sym+" 自动开仓"+slot.dir+" 跳过：单向持仓且已有反向仓位");
+    return false;
+  }
+  const plan=await openPlan(slot.sym);
+  let j;
   try{
-    const qty=(await openPlan(sym)).qty;
-    const j=await sendMarket(a,sym,dir,qty);
-    if(!j.orderId) throw new Error(j.msg||JSON.stringify(j).slice(0,100));
-    addLog("ok", a.name+" "+sym+" 自动开仓"+dir+" 数量 "+qty+"（订单 "+j.orderId+"）", sym, a.name);
-    return {ok:true};
+    j=await sendMarket(acc,slot.sym,slot.dir,plan.qty,plan.dec);
   }catch(e){
-    const note=a.name+" "+sym+dir+"："+e.message;
-    if(autoFails[autoFails.length-1]!==note){
-      autoFails.push(note); if(autoFails.length>20) autoFails.shift();
+    // 下单请求超时/断网：成交与否未知，本轮必须收手，避免重复开仓
+    addLog("err", acc.name+" "+slot.sym+" 自动开仓"+slot.dir+" 请求异常："+((e&&e.message)||e));
+    return "placed";
+  }
+  if(!j || !j.orderId) throw new Error((j&&j.msg)||"下单未返回订单号");
+  addLog("ok", acc.name+" "+slot.sym+" 自动开仓"+slot.dir+" "+qtyFixed(plan.qty,plan.dec)+"（约 "+fmtMoney(plan.qty*plan.price)+" USDT，订单 "+j.orderId+"）");
+  // 开完立刻重拉，确保后续判断用最新仓位
+  await refreshNow();
+  if(!findPos(acc.id,slot.sym,slot.dir)){
+    addLog("err", acc.name+" "+slot.sym+" "+slot.dir+" 下单成功但暂未显示持仓，请手动确认");
+    return "placed";
+  }
+  return true;
+}
+async function openOnePerCycle(){
+  let tried=0;
+  while(tried<MAX_TRY_PER_CYCLE && auto.running){
+    const keep=currentKeep();
+    const slot=firstEmptySlot(keep);
+    showNextSlot(slot);
+    if(!slot){
+      setAutoStat(keep.length
+        ? ("等待中：条件符合但暂无空位（"+keep.join("、")+"），每 "+AUTO_INTERVAL+" 秒巡检")
+        : ("等待中：暂无可开仓条件，每 "+AUTO_INTERVAL+" 秒巡检"));
+      return;
     }
-    addLog("err", a.name+" "+sym+" 自动开仓"+dir+" 失败："+e.message, sym, a.name);
-    return {ok:false,msg:e.message};
+    tried++;
+    setAutoStat("运行中："+slot.acc.name+" "+slot.sym+" "+slot.dir+"（No."+slot.no+"）开仓中…");
+    try{
+      const r=await autoOpen(slot);
+      if(r===true){                              // 成功开一个就收手
+        setAutoStat("本轮已开 1 个（No."+slot.no+"），下一轮继续巡检");
+        return;
+      }
+      if(r==="placed"){                          // 已下单但未复核到：本轮不再开别的
+        setAutoStat("本轮已下单，等下一轮刷新复核");
+        return;
+      }
+      auto.failed.add(slotKey(slot.acc.id,slot.sym,slot.dir));
+    }catch(e){
+      auto.failed.add(slotKey(slot.acc.id,slot.sym,slot.dir));
+      const msg=(e&&e.message)||String(e);
+      addLog("err", slot.acc.name+" "+slot.sym+" 自动开仓异常："+msg);
+      await sleep(600);                          // 稍等，避免连续打接口
+    }
+  }
+  if(tried>=MAX_TRY_PER_CYCLE) setAutoStat("本轮连续失败 "+tried+" 次，下一轮再试");
+}
+async function autoCycle(){
+  if(!auto.running || auto.busy) return;
+  auto.busy=true;
+  auto.nextAt=Date.now()+AUTO_INTERVAL*1000;
+  try{
+    setAutoStat("正在刷新持仓…");
+    await pingNet();
+    const ok=await refresh({silent:true});
+    if(!auto.running) return;
+    if(!ok){ setAutoStat("获取仓位失败，本轮跳过"); return; }
+    const hasOk=state.accs.some(a=>{ const r=accRes(a.id); return r && !r.err; });
+    if(!hasOk){ setAutoStat("各账户仓位均获取失败，本轮跳过"); return; }
+    await warmRules();
+    if(!rulesReady()){
+      if(!auto.rulesWarned){
+        auto.rulesWarned=true;
+        addLog("err","交易规则未加载，暂时无法自动开仓（网络恢复后会自动重试）");
+      }
+      setAutoStat("交易规则未加载，本轮跳过");
+      return;
+    }
+    auto.rulesWarned=false;
+    await openOnePerCycle();
+  }catch(e){
+    const msg=(e&&e.message)||String(e);
+    addLog("err","自动开仓运行异常："+msg);
+    setAutoStat("运行异常："+msg);
+  }finally{
+    auto.busy=false;
+    // 本轮耗时超过周期时补 1 秒缓冲，避免请求慢时连续空转
+    if(auto.nextAt<=Date.now()) auto.nextAt=Date.now()+1000;
+    if(auto.running) renderCd(Math.max(0, Math.ceil((auto.nextAt-Date.now())/1000)));
   }
 }
-function rowHtml(nm,key,secret,is5x){
-  return '<div class="arow">'+
-    '<input class="nm" value="'+esc(nm)+'" placeholder="账户名">'+
-    '<input class="ak" value="'+esc(key)+'" placeholder="API Key" autocomplete="off">'+
-    '<input class="as" value="'+esc(secret)+'" placeholder="API Secret" autocomplete="off" type="password">'+
-    '<label class="lbl5x" title="5倍杠杆账户：勾选后 ROI 按 7.5% = 100% 等比缩放显示">'+
-    '<input class="ax" type="checkbox" '+(is5x?"checked":"")+' style="cursor:pointer"> 5x</label>'+
-    '<button class="del" onclick="this.parentNode.remove()" title="删除该账户">×</button></div>';
+function autoTick(){
+  if(!auto.running) return;
+  const left=Math.max(0, Math.ceil((auto.nextAt-Date.now())/1000));
+  renderCd(left);
+  if(auto.busy) return;                        // 正在跑本轮：只更新读秒，不叠加
+  if(left<=0) autoCycle();
+}
+function startAuto(){
+  if(auto.running) return;
+  if(auto.busy){ toast("上一轮正在收尾，请稍后再点「开始」","warn"); return; }
+  auto.running=true;
+  auto.busy=false;
+  auto.failed=new Set();
+  auto.rulesWarned=false;
+  auto.nextAt=Date.now();
+  const b=$("autoBtn");
+  b.textContent="停止"; b.className="btn danger";
+  setNet(null);
+  setAutoStat("运行中：每 "+AUTO_INTERVAL+" 秒刷新一次，只在表格里符合条件的交易对补空位，只开仓不加仓");
+  clearInterval(auto.timer);
+  auto.timer=setInterval(autoTick,1000);
+  autoTick();
+}
+function stopAuto(){
+  auto.running=false;
+  clearInterval(auto.timer); auto.timer=null;
+  renderCd(0); showNextSlot(null);
+  const b=$("autoBtn");
+  b.textContent="开始"; b.className="btn primary";
+  setAutoStat("已停止，点击「开始」继续");
+}
+function askStartAuto(){
+  if(!state.accs.length){ toast("请先在「设置 API 密钥」里添加账户","warn"); openSet(); return; }
+  const keep=currentKeep();
+  const slot=state.accs.length?firstEmptySlot(keep):null;
+  const lines=[
+    "点「开始」后：",
+    "· 每 "+AUTO_INTERVAL+" 秒自动刷新一次持仓，显示读秒与网络延迟",
+    "· 只在「符合开仓条件」的交易对里补空位（同交易对所有账户、多空整体判定），别的交易对不碰",
+    "· 编号：账户1 多=1/空=2，账户2=3/4……按编号顺序扫；一次只开一个",
+    "· 报错/被跳过自动换下一条试（一轮最多 "+MAX_TRY_PER_CYCLE+" 个）",
+    "· 按系统最小开仓额+缓冲市价开仓，只开仓、不加仓；开完立即复核持仓",
+    "· 单向持仓遇反向仓位自动跳过，避免市价反手先平仓",
+    "",
+    "当前符合条件："+(keep.length?keep.join("、"):"无"),
+    slot
+      ? ("下一个待开：No."+slot.no+" "+slot.acc.name+" "+slot.sym+" "+slot.dir)
+      : (state.accs.length?"当前没有可开仓的空位（或账户数据不可用）":"尚未获取仓位，开始后先拉一次再判断"),
+    "",
+    "真实资金市价开仓，确认开始？"
+  ];
+  openDialog({
+    title:"开始自动开仓确认",
+    body:lines.join("\n"),
+    okText:"开始",
+    danger:true,
+    onOk:()=>{ closeDialog(); startAuto(); }
+  });
+}
+
+/* ===================== 设置 ===================== */
+function rowHtml(a){
+  return '<div class="arow" data-id="'+(a.id||"")+'">'+
+    '<input class="nm" type="text" value="'+esc(a.name||"")+'" placeholder="账户名">'+
+    '<input class="ak" type="text" value="'+esc(a.key||"")+'" placeholder="API Key" autocomplete="off" spellcheck="false">'+
+    '<input class="as" type="password" value="'+esc(a.secret||"")+'" placeholder="API Secret" autocomplete="new-password" spellcheck="false">'+
+    '<label class="lbl5x" title="5 倍杠杆账户：勾选后 ROI 按 7.5% = 100% 等比缩放"><input class="ax" type="checkbox" '+(a.is5x?"checked":"")+' style="cursor:pointer"> 5x</label>'+
+    '<button class="del" title="删除该账户">×</button></div>';
+}
+function buildSettings(){
+  const list=state.accs.length?state.accs:[{id:"",name:"账户1",key:"",secret:"",is5x:false}];
+  $("setRows").innerHTML=list.map(rowHtml).join("");
+  const rows=$("setRows").querySelectorAll(".arow");
+  rows.forEach(r=>{
+    r.querySelector(".del").onclick=()=>{
+      if($("setRows").querySelectorAll(".arow").length<=1) return;
+      r.remove(); renumberSettings();
+    };
+  });
+  renumberSettings();
+  updateSetHint();
+}
+function renumberSettings(){
+  const rows=$("setRows").querySelectorAll(".arow");
+  rows.forEach((r,i)=>{
+    const nm=r.querySelector(".nm");
+    if(!nm.value.trim() || /^账户\d+$/.test(nm.value.trim())) nm.value="账户"+(i+1);
+    r.querySelector(".del").disabled = rows.length<=1;
+  });
+  rows.forEach(r=>{ r.querySelector(".del").style.opacity = rows.length<=1 ? .3 : 1; });
+}
+function updateSetHint(){
+  const rows=$("setRows").querySelectorAll(".arow");
+  let filled=0;
+  rows.forEach(r=>{
+    if(r.querySelector(".ak").value.trim() && r.querySelector(".as").value.trim()) filled++;
+  });
+  $("setHint").textContent="当前 "+rows.length+" 个账户（已填 "+filled+" 个，最多 "+MAX_ACCOUNTS+" 个）。密钥只保存在当前浏览器。";
 }
 function openSet(){
-  const accs=loadAcc();
-  document.getElementById("accRows").innerHTML = accs.length
-    ? accs.map(a=>rowHtml(a.name,a.key,a.secret,a.is5x)).join("")
-    : rowHtml("账户1","","",false);
-  document.getElementById("mask").classList.add("open");
+  buildSettings();
+  $("setMask").classList.add("show");
 }
-function closeSet(){ document.getElementById("mask").classList.remove("open"); }
+function closeSet(){ $("setMask").classList.remove("show"); }
 function addRow(){
-  const n=document.getElementById("accRows").children.length;
-  document.getElementById("accRows").insertAdjacentHTML("beforeend", rowHtml("账户"+(n+1),"","",false));
+  const rows=$("setRows").querySelectorAll(".arow").length;
+  if(rows>=MAX_ACCOUNTS){ toast("最多支持 "+MAX_ACCOUNTS+" 个账户","warn"); return; }
+  $("setRows").insertAdjacentHTML("beforeend", rowHtml({id:"",name:"账户"+(rows+1),key:"",secret:"",is5x:false}));
+  const r=$("setRows").lastElementChild;
+  r.querySelector(".del").onclick=()=>{
+    if($("setRows").querySelectorAll(".arow").length<=1) return;
+    r.remove(); renumberSettings();
+  };
+  renumberSettings();
+  updateSetHint();
+  r.querySelector(".ak").focus();
+}
+function collectSettings(){
+  const out=[]; let missing=false;
+  $("setRows").querySelectorAll(".arow").forEach((r,i)=>{
+    const key=r.querySelector(".ak").value.trim();
+    const secret=r.querySelector(".as").value.trim();
+    if(!key && !secret) return;
+    if(!key || !secret){ missing=true; return; }
+    const nm=r.querySelector(".nm").value.trim() || ("账户"+(out.length+1));
+    const oldId=r.dataset.id ? Number(r.dataset.id) : null;
+    out.push({id:oldId || (Date.now()+out.length), name:nm, key, secret, is5x:r.querySelector(".ax").checked});
+  });
+  return {accs:out, missing};
 }
 function saveSet(){
-  const accs=[];
-  document.querySelectorAll("#accRows .arow").forEach(row=>{
-    const key=row.querySelector(".ak").value.trim();
-    const secret=row.querySelector(".as").value.trim();
-    if(!key&&!secret) return;
-    const nm=(row.querySelector(".nm").value||"").trim()||("账户"+(accs.length+1));
-    const is5x=!!(row.querySelector(".ax")&&row.querySelector(".ax").checked);
-    accs.push({id:Date.now()+accs.length, name:nm, key, secret, is5x});
-  });
-  if(!accs.length){ alert("请至少填写一行 API Key + Secret"); return; }
+  const {accs, missing}=collectSettings();
+  if(missing){ toast("有账户只填了 Key 或只填了 Secret，请补全后再保存","err"); return; }
+  if(!accs.length){ toast("请至少填写一个账户的 Key + Secret","warn"); return; }
   saveAcc(accs);
+  Object.keys(dualCache).forEach(k=>delete dualCache[k]);
   closeSet();
-  loadAll();
+  toast("已保存 "+accs.length+" 个账户","ok");
+  setStatus("正在刷新持仓…");
+  refresh();
 }
-updateViewBtn();
-renderLog();
-/* 打开/刷新先用上次缓存秒出内容，再后台刷新 */
-const bootAcc=loadAcc();
-if(bootAcc.length) renderCache(bootAcc); else renderEmpty();
-pingNet();
-loadAll();
-/* Service Worker：页面与静态资源走本地缓存，刷新不再等 github.io 首字节 */
-if("serviceWorker" in navigator){
-  addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+async function testConn(){
+  const btn=$("btnTest");
+  btn.disabled=true; btn.textContent="测试中…";
+  const lines=[];
+  try{
+    await apiGet("/fapi/v1/ping",4000);
+    lines.push("① 币安公共接口：连接正常 ✓");
+  }catch(e){
+    lines.push("① 币安公共接口失败："+(e.message||e));
+  }
+  const {accs}=collectSettings();
+  if(!accs.length) lines.push("② 尚未填写任何账户密钥");
+  for(const a of accs){
+    try{
+      const rows=await signedFetch(a,"/fapi/v2/positionRisk");
+      lines.push("② "+a.name+"：签名持仓 OK，"+rows.length+" 条 ✓");
+    }catch(e){
+      lines.push("② "+a.name+" 失败："+(e.message||e));
+    }
+  }
+  btn.disabled=false; btn.textContent="测试连接";
+  showInfo("连接测试", lines.join("\n"));
 }
+
+/* ===================== 手动刷新 ===================== */
+async function manualRefresh(){
+  if(!state.accs.length){ toast("尚未添加账户","warn"); openSet(); return; }
+  if(state.fetching){ setStatus("正在刷新，请稍候…"); return; }
+  setStatus("正在刷新持仓…");
+  const ok=await refresh();
+  if(!ok){ setStatus("刷新失败，请检查网络后重试"); return; }
+  const errs=state.results.filter(r=>r.err).length;
+  setStatus("已刷新 "+hhmmss(new Date())+" · 耗时 "+state.dur.toFixed(1)+"s"+(errs?(" · "+errs+" 个账户失败"):""));
+}
+
+/* ===================== 初始化 / 事件 ===================== */
+$("btnRefresh").onclick=manualRefresh;
+$("btnSet").onclick=openSet;
+$("viewBtn").onclick=toggleView;
+$("autoBtn").onclick=()=>{ auto.running ? stopAuto() : askStartAuto(); };
+$("dlgOk").onclick=async()=>{
+  const fn=dlgOnOk;
+  if(!fn){ closeDialog(); return; }
+  $("dlgOk").disabled=true;
+  try{ await fn(); }
+  finally{ $("dlgOk").disabled=false; }
+};
+$("dlgCancel").onclick=closeDialog;
+$("dlgMask").onclick=e=>{ if(e.target===$("dlgMask")) closeDialog(); };
+$("btnCloseSet").onclick=closeSet;
+$("btnSave").onclick=saveSet;
+$("btnAddRow").onclick=addRow;
+$("btnTest").onclick=testConn;
+$("setMask").onclick=e=>{ if(e.target===$("setMask")) closeSet(); };
+$("setRows").addEventListener("input", updateSetHint);
+
+function init(){
+  state.accs=loadAcc();
+  updateViewBtn();
+  renderLog();
+  render();
+  if(state.accs.length){
+    if(!paintCache()) setStatus("正在获取持仓…");
+    refresh().then(ok=>{
+      if(!ok) return;
+      const errs=state.results.filter(r=>r.err).length;
+      setStatus("已刷新 "+hhmmss(new Date())+" · 耗时 "+state.dur.toFixed(1)+"s"+(errs?(" · "+errs+" 个账户失败"):""));
+    });
+  }else{
+    setStatus("尚未添加账户");
+  }
+  pingNet();
+  // 打开页面即后台预取交易规则，点开仓时不再等大文件下载
+  setTimeout(warmRules, 800);
+  if("serviceWorker" in navigator){
+    addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+  }
+}
+init();
 </script>
 </body>
 </html>
